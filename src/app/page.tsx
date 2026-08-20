@@ -9,6 +9,7 @@ import { ServicesView } from '../components/services/ServicesView';
 import { InventoryView } from '../components/inventory/InventoryView';
 import { ReportsView } from '../components/reports/ReportsView';
 import { SettingsView } from '../components/settings/SettingsView';
+import { AppointmentsView } from '../components/appointments/AppointmentsView';
 import { Scissors } from 'lucide-react';
 
 export default function Home() {
@@ -32,6 +33,9 @@ export default function Home() {
 
       <main className="flex-1 overflow-x-hidden">
         {currentTab === 'POS' && <POSView />}
+        {currentTab === 'APPOINTMENTS' && (
+          <AppointmentsView onNavigateToPOS={() => setCurrentTab('POS')} />
+        )}
         {currentTab === 'CATALOG' && <CatalogView />}
         {currentTab === 'SERVICES' && <ServicesView />}
         {currentTab === 'INVENTORY' && <InventoryView />}

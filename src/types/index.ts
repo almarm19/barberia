@@ -99,3 +99,21 @@ export interface TicketConfig {
   showCourtesyOnTicket: boolean;
   showBarberName: boolean;
 }
+
+export type AppointmentStatus = 'CONFIRMADA' | 'PENDIENTE' | 'COMPLETADA' | 'CANCELADA';
+
+export interface Appointment {
+  id: string;
+  customerName: string;
+  customerPhone: string;
+  barberId: string;
+  barberName: string;
+  serviceId: string;
+  serviceName: string;
+  servicePrice: number;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:mm
+  status: AppointmentStatus;
+  notes?: string;
+  createdAt: string;
+}

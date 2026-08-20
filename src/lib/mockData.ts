@@ -190,3 +190,36 @@ export const INITIAL_PRODUCTS: Product[] = [
 ];
 
 export const INITIAL_SALES: Sale[] = [];
+
+export const INITIAL_APPOINTMENTS = [
+  {
+    id: 'apt-1',
+    customerName: 'Fernando Gómez',
+    customerPhone: '55 9876 5432',
+    barberId: 'b1',
+    barberName: 'Carlos "Barbas"',
+    serviceId: 's3',
+    serviceName: 'Combo Rey Barbas (Corte + Barba)',
+    servicePrice: 380,
+    date: new Date().toISOString().split('T')[0],
+    time: '15:30',
+    status: 'CONFIRMADA' as const,
+    notes: 'Cliente VIP, pide toalla caliente extra',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'apt-2',
+    customerName: 'Roberto Mendoza',
+    customerPhone: '55 1122 3344',
+    barberId: 'b2',
+    barberName: 'Alex "Fade Master"',
+    serviceId: 's1',
+    serviceName: 'Corte Skin Fade VIP',
+    servicePrice: 250,
+    date: new Date().toISOString().split('T')[0],
+    time: '17:00',
+    status: 'PENDIENTE' as const,
+    notes: 'Primera cita',
+    createdAt: new Date().toISOString(),
+  },
+];

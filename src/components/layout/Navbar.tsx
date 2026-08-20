@@ -11,9 +11,10 @@ import {
   Settings,
   AlertTriangle,
   Sparkles,
+  Calendar,
 } from 'lucide-react';
 
-export type NavTab = 'POS' | 'CATALOG' | 'SERVICES' | 'INVENTORY' | 'REPORTS' | 'SETTINGS';
+export type NavTab = 'POS' | 'APPOINTMENTS' | 'CATALOG' | 'SERVICES' | 'INVENTORY' | 'REPORTS' | 'SETTINGS';
 
 interface NavbarProps {
   currentTab: NavTab;
@@ -29,6 +30,11 @@ export function Navbar({ currentTab, onTabChange }: NavbarProps) {
       id: 'POS',
       label: 'Cajero / POS',
       icon: <ShoppingCart className="w-4 h-4" />,
+    },
+    {
+      id: 'APPOINTMENTS',
+      label: 'Agenda & Citas',
+      icon: <Calendar className="w-4 h-4" />,
     },
     {
       id: 'CATALOG',

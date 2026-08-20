@@ -11,6 +11,7 @@ import {
   TicketConfig,
   ItemType,
   PaymentMethod,
+  Appointment,
 } from '../types';
 import {
   INITIAL_PRODUCTS,
@@ -18,6 +19,7 @@ import {
   INITIAL_BARBERS,
   INITIAL_SALES,
   INITIAL_TICKET_CONFIG,
+  INITIAL_APPOINTMENTS,
 } from './mockData';
 
 const LOCAL_STORAGE_KEY = 'BARBAS_CUTS_POS_DATA_V1';
@@ -29,6 +31,7 @@ interface StoreData {
   sales: Sale[];
   inventoryLogs: InventoryLog[];
   ticketConfig: TicketConfig;
+  appointments: Appointment[];
 }
 
 export function useBarberStore() {
@@ -38,6 +41,7 @@ export function useBarberStore() {
   const [sales, setSales] = useState<Sale[]>(INITIAL_SALES);
   const [inventoryLogs, setInventoryLogs] = useState<InventoryLog[]>([]);
   const [ticketConfig, setTicketConfig] = useState<TicketConfig>(INITIAL_TICKET_CONFIG);
+  const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
   
   // POS State
   const [selectedBarberId, setSelectedBarberId] = useState<string>('b1');
@@ -58,6 +62,7 @@ export function useBarberStore() {
         setSales(parsed.sales || INITIAL_SALES);
         setInventoryLogs(parsed.inventoryLogs || []);
         setTicketConfig(parsed.ticketConfig || INITIAL_TICKET_CONFIG);
+        setAppointments(parsed.appointments || INITIAL_APPOINTMENTS);
       } else {
         setProducts(INITIAL_PRODUCTS);
         setServices(INITIAL_SERVICES);
@@ -65,6 +70,7 @@ export function useBarberStore() {
         setSales(INITIAL_SALES);
         setInventoryLogs([]);
         setTicketConfig(INITIAL_TICKET_CONFIG);
+        setAppointments(INITIAL_APPOINTMENTS);
       }
     } catch (e) {
       console.error('Failed to load local storage', e);
@@ -73,6 +79,7 @@ export function useBarberStore() {
       setBarbers(INITIAL_BARBERS);
       setSales(INITIAL_SALES);
       setTicketConfig(INITIAL_TICKET_CONFIG);
+      setAppointments(INITIAL_APPOINTMENTS);
     }
     setIsLoaded(true);
   }, []);
@@ -87,6 +94,7 @@ export function useBarberStore() {
         sales: dataToSave.sales ?? sales,
         inventoryLogs: dataToSave.inventoryLogs ?? inventoryLogs,
         ticketConfig: dataToSave.ticketConfig ?? ticketConfig,
+        appointments: dataToSave.appointments ?? appointments,
       };
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(current));
     } catch (e) {
@@ -369,6 +377,60 @@ export function useBarberStore() {
     persist({ barbers: list });
   };
 
+  // APPOINTMENT MANAGEMENT ACTIONS
+  const addAppointment = (appointment: Omit<Appointment, 'id' | 'createdAt'>) => {
+    const newApt: Appointment = {
+      ...appointment,
+      id: `apt-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    };
+    const updated = [newApt, ...appointments];
+    setAppointments(updated);
+    persist({ appointments: updated });
+  };
+
+  const updateAppointment = (updated: Appointment) => {
+    const list = appointments.map((a) => (a.id === updated.id ? updated : a));
+    setAppointments(list);
+    persist({ appointments: list });
+  };
+
+  const deleteAppointment = (id: string) => {
+    const list = appointments.filter((a) => a.id !== id);
+    setAppointments(list);
+    persist({ appointments: list });
+  };
+
+  // Convert appointment directly to POS cashier cart
+  const convertAppointmentToCart = (apt: Appointment) => {
+    setSelectedBarberId(apt.barberId);
+    
+    // Check if service exists
+    const matchingService = services.find((s) => s.id === apt.serviceId);
+    
+    const cartItem: CartItem = {
+      id: `cart-apt-${Date.now()}`,
+      itemId: apt.serviceId,
+      type: 'SERVICE',
+      name: apt.serviceName,
+      unitPrice: apt.servicePrice,
+      originalPrice: apt.servicePrice,
+      quantity: 1,
+      imageUrl: matchingService?.imageUrl,
+    };
+
+    setCart([cartItem]);
+    if (apt.customerName) {
+      setCustomerNotes(`Cita de ${apt.customerName} (${apt.customerPhone})`);
+    }
+
+    // Mark appointment as COMPLETED
+    updateAppointment({
+      ...apt,
+      status: 'COMPLETADA',
+    });
+  };
+
   // TICKET CONFIG ACTIONS
   const updateTicketConfig = (config: TicketConfig) => {
     setTicketConfig(config);
@@ -383,6 +445,7 @@ export function useBarberStore() {
     sales,
     inventoryLogs,
     ticketConfig,
+    appointments,
     // POS State
     selectedBarberId,
     setSelectedBarberId,
@@ -411,6 +474,10 @@ export function useBarberStore() {
     addBarber,
     updateBarber,
     deleteBarber,
+    addAppointment,
+    updateAppointment,
+    deleteAppointment,
+    convertAppointmentToCart,
     updateTicketConfig,
   };
 }
