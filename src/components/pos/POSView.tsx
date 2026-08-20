@@ -416,8 +416,8 @@ export function POSView() {
         </div>
       </div>
 
-      {/* RIGHT SIDEBAR / CART PANEL (iPad Optimized) */}
-      <div className="w-full lg:w-96 bg-zinc-900 border border-zinc-800 rounded-2xl flex flex-col justify-between shadow-2xl overflow-hidden shrink-0">
+      {/* RIGHT SIDEBAR / CART PANEL (iPad Fixed Sticky) */}
+      <div className="w-full lg:w-96 lg:sticky lg:top-4 lg:h-[calc(100vh-5.5rem)] bg-zinc-900 border border-zinc-800 rounded-2xl flex flex-col justify-between shadow-2xl overflow-hidden shrink-0">
         {/* Cart Header */}
         <div className="p-4 bg-zinc-950 border-b border-zinc-800 flex items-center justify-between">
           <div className="flex items-center gap-2">

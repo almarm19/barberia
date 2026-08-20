@@ -18,15 +18,9 @@ import {
 } from 'lucide-react';
 
 export function ReportsView() {
-  const { sales, clearSales, ticketConfig } = useBarberStore();
+  const { sales, ticketConfig } = useBarberStore();
   const [selectedSaleForReprint, setSelectedSaleForReprint] = useState<Sale | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-
-  const handleClearSales = () => {
-    if (confirm('¿Estás seguro de vaciar todo el historial de ventas? Esta acción es irreversible.')) {
-      clearSales();
-    }
-  };
 
   // Metrics
   const totalRevenue = sales.reduce((sum, s) => sum + s.total, 0);
@@ -100,25 +94,15 @@ export function ReportsView() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            {sales.length > 0 && (
-              <button
-                onClick={handleClearSales}
-                className="px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl text-xs font-bold transition-all"
-              >
-                🗑️ Vaciar Historial de Ventas
-              </button>
-            )}
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-              <input
-                type="text"
-                placeholder="Buscar por #Ticket o Barbero..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-zinc-950 border border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-amber-500"
-              />
-            </div>
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <input
+              type="text"
+              placeholder="Buscar por #Ticket o Barbero..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-zinc-950 border border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-amber-500"
+            />
           </div>
         </div>
 

@@ -369,11 +369,6 @@ export function useBarberStore() {
     persist({ barbers: list });
   };
 
-  const clearSales = () => {
-    setSales([]);
-    persist({ sales: [] });
-  };
-
   // TICKET CONFIG ACTIONS
   const updateTicketConfig = (config: TicketConfig) => {
     setTicketConfig(config);
@@ -416,7 +411,6 @@ export function useBarberStore() {
     addBarber,
     updateBarber,
     deleteBarber,
-    clearSales,
     updateTicketConfig,
   };
 }
