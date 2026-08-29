@@ -76,7 +76,7 @@ export function AdminPasswordModal({ isOpen, onClose, onSuccess }: AdminPassword
             </div>
             <div>
               <h3 className="font-extrabold text-base text-white">Acceso Administrador</h3>
-              <p className="text-[10px] text-zinc-400">Ingresa el PIN de Dueño (Defecto: 1234)</p>
+              <p className="text-[10px] text-zinc-400">Ingresa tu clave o PIN de Dueño para acceder</p>
             </div>
           </div>
           <button

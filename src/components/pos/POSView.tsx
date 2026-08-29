@@ -126,9 +126,9 @@ export function POSView() {
     .filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
-    <div className="flex flex-col lg:flex-row h-full min-h-[calc(100vh-4rem)] bg-zinc-950 text-white gap-4 p-4 lg:p-6 overflow-hidden">
+    <div className="flex flex-col lg:flex-row lg:h-[calc(100vh-6.5rem)] bg-zinc-950 text-white gap-4 p-4 lg:p-6 overflow-hidden max-w-[100vw]">
       {/* LEFT / MAIN CATALOG AREA */}
-      <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+      <div className="flex-1 flex flex-col gap-4 overflow-hidden min-w-0">
         {/* BARBER SELECTOR STRIP (iPad Friendly Touch Target) */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 shadow-lg">
           <div className="flex items-center justify-between mb-2">
@@ -422,8 +422,8 @@ export function POSView() {
         </div>
       </div>
 
-      {/* RIGHT SIDEBAR / CART PANEL (iPad Fixed Sticky) */}
-      <div className="w-full lg:w-96 lg:sticky lg:top-4 lg:h-[calc(100vh-5.5rem)] bg-zinc-900 border border-zinc-800 rounded-2xl flex flex-col justify-between shadow-2xl overflow-hidden shrink-0">
+      {/* RIGHT SIDEBAR / CART PANEL (Fixed width and height - never stretches) */}
+      <div className="w-full lg:w-96 lg:max-w-[384px] lg:h-full bg-zinc-900 border border-zinc-800 rounded-2xl flex flex-col justify-between shadow-2xl overflow-hidden shrink-0 min-w-0">
         {/* Cart Header */}
         <div className="p-4 bg-zinc-950 border-b border-zinc-800 flex items-center justify-between">
           <div className="flex items-center gap-2">

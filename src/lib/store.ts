@@ -74,7 +74,9 @@ export function useBarberStore() {
   };
 
   const validateAdminPassword = (pass: string): boolean => {
-    return pass === adminPassword;
+    const saved = typeof window !== 'undefined' ? localStorage.getItem(LOCAL_STORAGE_PASS_KEY) : null;
+    const effectivePass = saved || adminPassword || '1234';
+    return pass.trim() === effectivePass.trim();
   };
 
   // Initialize from LocalStorage
