@@ -12,6 +12,7 @@ import {
   ItemType,
   PaymentMethod,
   Appointment,
+  UserRole,
 } from '../types';
 import {
   INITIAL_PRODUCTS,
@@ -23,6 +24,8 @@ import {
 } from './mockData';
 
 const LOCAL_STORAGE_KEY = 'BARBAS_CUTS_POS_DATA_V1';
+const LOCAL_STORAGE_ROLE_KEY = 'BARBAS_CUTS_POS_ROLE_V1';
+const LOCAL_STORAGE_PASS_KEY = 'BARBAS_CUTS_ADMIN_PASS_V1';
 
 interface StoreData {
   products: Product[];
@@ -42,6 +45,8 @@ export function useBarberStore() {
   const [inventoryLogs, setInventoryLogs] = useState<InventoryLog[]>([]);
   const [ticketConfig, setTicketConfig] = useState<TicketConfig>(INITIAL_TICKET_CONFIG);
   const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
+  const [currentRole, setCurrentRoleState] = useState<UserRole>('ADMIN');
+  const [adminPassword, setAdminPasswordState] = useState<string>('1234');
   
   // POS State
   const [selectedBarberId, setSelectedBarberId] = useState<string>('b1');
@@ -50,9 +55,41 @@ export function useBarberStore() {
   const [discountAmount, setDiscountAmount] = useState<number>(0);
   const [isLoaded, setIsLoaded] = useState(false);
 
+  const setCurrentRole = (role: UserRole) => {
+    setCurrentRoleState(role);
+    try {
+      localStorage.setItem(LOCAL_STORAGE_ROLE_KEY, role);
+    } catch (e) {
+      console.error('Error saving role to localStorage', e);
+    }
+  };
+
+  const setAdminPassword = (newPass: string) => {
+    setAdminPasswordState(newPass);
+    try {
+      localStorage.setItem(LOCAL_STORAGE_PASS_KEY, newPass);
+    } catch (e) {
+      console.error('Error saving admin password to localStorage', e);
+    }
+  };
+
+  const validateAdminPassword = (pass: string): boolean => {
+    return pass === adminPassword;
+  };
+
   // Initialize from LocalStorage
   useEffect(() => {
     try {
+      const savedRole = localStorage.getItem(LOCAL_STORAGE_ROLE_KEY);
+      if (savedRole === 'ADMIN' || savedRole === 'BARBER') {
+        setCurrentRoleState(savedRole);
+      }
+
+      const savedPass = localStorage.getItem(LOCAL_STORAGE_PASS_KEY);
+      if (savedPass) {
+        setAdminPasswordState(savedPass);
+      }
+
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (saved) {
         const parsed: StoreData = JSON.parse(saved);
@@ -102,6 +139,35 @@ export function useBarberStore() {
     }
   };
 
+  // HELPER TO CALCULATE ITEM BARBER COMMISSION UNIT
+  const getItemCommissionUnit = (
+    type: ItemType,
+    itemId: string,
+    unitPrice: number,
+    isCourtesy: boolean = false
+  ): number => {
+    if (isCourtesy) return 0;
+    if (type === 'SERVICE') {
+      const s = services.find((serv) => serv.id === itemId);
+      if (s && s.barberCommissionValue !== undefined && s.barberCommissionValue !== null) {
+        if (s.barberCommissionType === 'FIXED') {
+          return s.barberCommissionValue;
+        }
+        return (unitPrice * s.barberCommissionValue) / 100;
+      }
+      return unitPrice * 0.5; // Default 50% for service if unconfigured
+    } else {
+      const p = products.find((prod) => prod.id === itemId);
+      if (p && p.barberCommissionValue !== undefined && p.barberCommissionValue !== null) {
+        if (p.barberCommissionType === 'PERCENTAGE') {
+          return (unitPrice * p.barberCommissionValue) / 100;
+        }
+        return p.barberCommissionValue;
+      }
+      return 0; // Default 0 for product
+    }
+  };
+
   // CART ACTIONS
   const addToCart = (
     item: { id: string; name: string; price: number; type: ItemType; isBeverage?: boolean; imageUrl?: string },
@@ -111,9 +177,17 @@ export function useBarberStore() {
       (ci) => ci.itemId === item.id && Boolean(ci.isCourtesy) === isCourtesy
     );
 
+    const commissionUnit = getItemCommissionUnit(
+      item.type,
+      item.id,
+      isCourtesy ? 0 : item.price,
+      isCourtesy
+    );
+
     if (existingIndex > -1) {
       const updatedCart = [...cart];
       updatedCart[existingIndex].quantity += 1;
+      updatedCart[existingIndex].barberCommissionUnit = commissionUnit;
       setCart(updatedCart);
     } else {
       const newItem: CartItem = {
@@ -126,6 +200,7 @@ export function useBarberStore() {
         quantity: 1,
         isCourtesy: isCourtesy,
         imageUrl: item.imageUrl,
+        barberCommissionUnit: commissionUnit,
       };
       setCart([...cart, newItem]);
     }
@@ -150,10 +225,18 @@ export function useBarberStore() {
       prev.map((item) => {
         if (item.id === cartItemId) {
           const newCourtesy = !item.isCourtesy;
+          const newUnitPrice = newCourtesy ? 0 : item.originalPrice;
+          const commissionUnit = getItemCommissionUnit(
+            item.type,
+            item.itemId,
+            newUnitPrice,
+            newCourtesy
+          );
           return {
             ...item,
             isCourtesy: newCourtesy,
-            unitPrice: newCourtesy ? 0 : item.originalPrice,
+            unitPrice: newUnitPrice,
+            barberCommissionUnit: commissionUnit,
           };
         }
         return item;
@@ -181,27 +264,45 @@ export function useBarberStore() {
   // CHECKOUT SALE REGISTRATION
   const registerSale = (
     paymentMethod: PaymentMethod,
-    amountPaid: number
+    amountPaid: number,
+    tipAmount: number = 0
   ): Sale => {
     const defaultBarber = { id: 'b1', name: 'Carlos "Barbas"', avatar: '🧔🏻‍♂️', active: true };
     const selectedBarber = barbers.find((b) => b.id === selectedBarberId) || barbers[0] || defaultBarber;
     const ticketNum = `T-${1000 + sales.length + 1}`;
     const now = new Date().toISOString();
 
+    const itemsWithCommissions = cart.map((ci) => {
+      const commUnit = getItemCommissionUnit(ci.type, ci.itemId, ci.unitPrice, ci.isCourtesy);
+      return {
+        ...ci,
+        barberCommissionUnit: commUnit,
+      };
+    });
+
+    const totalBarberCommission = itemsWithCommissions.reduce(
+      (sum, item) => sum + (item.barberCommissionUnit || 0) * item.quantity,
+      0
+    );
+
+    const grandTotalPaidByClient = cartTotal + tipAmount;
+
     const newSale: Sale = {
       id: `sale-${Date.now()}`,
       ticketNumber: ticketNum,
       barberId: selectedBarber.id,
       barberName: selectedBarber.name,
-      items: [...cart],
+      items: itemsWithCommissions,
       subtotal: cartSubtotal,
       discount: discountAmount,
+      tip: tipAmount,
       total: cartTotal,
       paymentMethod,
-      amountPaid: paymentMethod === 'EFECTIVO' ? amountPaid : cartTotal,
-      changeDue: paymentMethod === 'EFECTIVO' ? Math.max(0, amountPaid - cartTotal) : 0,
+      amountPaid: paymentMethod === 'EFECTIVO' ? amountPaid : grandTotalPaidByClient,
+      changeDue: paymentMethod === 'EFECTIVO' ? Math.max(0, amountPaid - grandTotalPaidByClient) : 0,
       createdAt: now,
       customerNotes: customerNotes.trim() || undefined,
+      totalBarberCommission,
     };
 
     // Deduct stock for Products and Beverages (Whether paid or courtesy)
@@ -439,6 +540,11 @@ export function useBarberStore() {
 
   return {
     isLoaded,
+    currentRole,
+    setCurrentRole,
+    adminPassword,
+    setAdminPassword,
+    validateAdminPassword,
     products,
     services,
     barbers,

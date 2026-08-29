@@ -53,6 +53,8 @@ export function POSView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('EFECTIVO');
   const [cashGiven, setCashGiven] = useState<string>('');
+  const [tipAmount, setTipAmount] = useState<number>(0);
+  const [customTipInput, setCustomTipInput] = useState<string>('');
   const [completedSale, setCompletedSale] = useState<Sale | null>(null);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [showBarberModal, setShowBarberModal] = useState(false);
@@ -82,18 +84,22 @@ export function POSView() {
     setSelectedBeverageItem(null);
   };
 
+  const totalWithTip = cartTotal + tipAmount;
+
   const handleCheckoutSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const cashNum = parseFloat(cashGiven) || cartTotal;
-    if (paymentMethod === 'EFECTIVO' && cashNum < cartTotal) {
-      alert(`El efectivo ingresado ($${cashNum}) es menor al total a pagar ($${cartTotal})`);
+    const cashNum = parseFloat(cashGiven) || totalWithTip;
+    if (paymentMethod === 'EFECTIVO' && cashNum < totalWithTip) {
+      alert(`El efectivo ingresado ($${cashNum}) es menor al total a cobrar ($${totalWithTip})`);
       return;
     }
 
-    const sale = registerSale(paymentMethod, cashNum);
+    const sale = registerSale(paymentMethod, cashNum, tipAmount);
     setShowCheckoutModal(false);
     setCompletedSale(sale);
     setCashGiven('');
+    setTipAmount(0);
+    setCustomTipInput('');
 
     // Trigger celebratory confetti effect
     try {
@@ -623,6 +629,75 @@ export function POSView() {
                 </div>
               </div>
 
+              {/* Tip Selector */}
+              <div className="space-y-2 bg-zinc-950/70 p-3 rounded-xl border border-zinc-800">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                    <span>🎁</span>
+                    <span>Propina para {selectedBarber.name}:</span>
+                  </label>
+                  <span className="text-xs font-mono font-bold text-emerald-400">
+                    +${tipAmount.toFixed(2)} MXN
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[0, 20, 50, Math.round(cartTotal * 0.1)].map((amt, idx) => {
+                    const label = idx === 0 ? 'Sin propina' : idx === 3 ? '10%' : `$${amt}`;
+                    const isSelected = tipAmount === amt && customTipInput === '';
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setTipAmount(amt);
+                          setCustomTipInput('');
+                        }}
+                        className={`py-2 px-1 rounded-lg text-xs font-bold transition-all border ${
+                          isSelected
+                            ? 'bg-amber-500 text-zinc-950 border-amber-500 font-extrabold'
+                            : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="text-[10px] text-zinc-400">Otra cantidad:</span>
+                  <input
+                    type="number"
+                    step="5"
+                    placeholder="Monto $"
+                    value={customTipInput}
+                    onChange={(e) => {
+                      setCustomTipInput(e.target.value);
+                      const val = parseFloat(e.target.value) || 0;
+                      setTipAmount(val);
+                    }}
+                    className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1 text-xs text-amber-400 font-mono font-bold focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              {/* Total Summary Breakdown */}
+              <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 space-y-1.5 text-xs font-mono">
+                <div className="flex justify-between text-zinc-400">
+                  <span>Subtotal Servicios/Productos:</span>
+                  <span>${cartTotal.toFixed(2)}</span>
+                </div>
+                {tipAmount > 0 && (
+                  <div className="flex justify-between text-emerald-400">
+                    <span>Propina Barbero:</span>
+                    <span>+${tipAmount.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm font-black text-white pt-1.5 border-t border-zinc-800">
+                  <span>TOTAL A COBRAR:</span>
+                  <span className="text-amber-400 text-base">${totalWithTip.toFixed(2)} MXN</span>
+                </div>
+              </div>
+
               {/* Cash given input if Efectivo */}
               {paymentMethod === 'EFECTIVO' && (
                 <div className="space-y-2 bg-zinc-950 p-4 rounded-xl border border-zinc-800">
@@ -632,18 +707,18 @@ export function POSView() {
                   <input
                     type="number"
                     step="0.01"
-                    min={cartTotal}
-                    placeholder={`$${cartTotal.toFixed(2)}`}
+                    min={totalWithTip}
+                    placeholder={`$${totalWithTip.toFixed(2)}`}
                     value={cashGiven}
                     onChange={(e) => setCashGiven(e.target.value)}
                     className="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-lg font-mono font-bold text-amber-400 focus:outline-none focus:border-amber-500"
                     autoFocus
                   />
-                  {cashGiven && parseFloat(cashGiven) >= cartTotal && (
+                  {cashGiven && parseFloat(cashGiven) >= totalWithTip && (
                     <div className="flex justify-between items-center text-sm font-bold text-emerald-400 pt-2 border-t border-zinc-800">
                       <span>Cambio a Entregar:</span>
                       <span className="font-mono text-base">
-                        ${(parseFloat(cashGiven) - cartTotal).toFixed(2)} MXN
+                        ${(parseFloat(cashGiven) - totalWithTip).toFixed(2)} MXN
                       </span>
                     </div>
                   )}
@@ -655,7 +730,7 @@ export function POSView() {
                 type="submit"
                 className="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-zinc-950 font-black text-base uppercase rounded-xl transition-all shadow-lg active:scale-95"
               >
-                Completar Venta e Imprimir
+                Completar Venta e Imprimir (${totalWithTip.toFixed(2)})
               </button>
             </form>
           </div>

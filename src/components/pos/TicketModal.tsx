@@ -165,9 +165,16 @@ export function TicketModal({ sale, config, onClose }: TicketModalProps) {
                 </div>
               )}
 
+              {sale.tip !== undefined && sale.tip > 0 && (
+                <div className="flex justify-between text-gray-900 font-semibold">
+                  <span>Propina Barbero:</span>
+                  <span className="font-mono">+${sale.tip.toFixed(2)}</span>
+                </div>
+              )}
+
               <div className="flex justify-between font-extrabold text-sm pt-1 border-t border-black">
                 <span>TOTAL:</span>
-                <span className="font-mono text-sm">${sale.total.toFixed(2)} MXN</span>
+                <span className="font-mono text-sm">${(sale.total + (sale.tip || 0)).toFixed(2)} MXN</span>
               </div>
 
               {sale.paymentMethod === 'EFECTIVO' && (

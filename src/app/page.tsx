@@ -13,7 +13,7 @@ import { AppointmentsView } from '../components/appointments/AppointmentsView';
 import { Scissors } from 'lucide-react';
 
 export default function Home() {
-  const { isLoaded } = useBarberStore();
+  const { isLoaded, currentRole } = useBarberStore();
   const [currentTab, setCurrentTab] = useState<NavTab>('POS');
 
   if (!isLoaded) {
@@ -27,20 +27,26 @@ export default function Home() {
     );
   }
 
+  // Ensure BARBER role cannot access admin tabs
+  const activeTabToRender =
+    currentRole === 'BARBER' && currentTab !== 'POS' && currentTab !== 'APPOINTMENTS'
+      ? 'POS'
+      : currentTab;
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans">
-      <Navbar currentTab={currentTab} onTabChange={setCurrentTab} />
+      <Navbar currentTab={activeTabToRender} onTabChange={setCurrentTab} />
 
       <main className="flex-1 overflow-x-hidden">
-        {currentTab === 'POS' && <POSView />}
-        {currentTab === 'APPOINTMENTS' && (
+        {activeTabToRender === 'POS' && <POSView />}
+        {activeTabToRender === 'APPOINTMENTS' && (
           <AppointmentsView onNavigateToPOS={() => setCurrentTab('POS')} />
         )}
-        {currentTab === 'CATALOG' && <CatalogView />}
-        {currentTab === 'SERVICES' && <ServicesView />}
-        {currentTab === 'INVENTORY' && <InventoryView />}
-        {currentTab === 'REPORTS' && <ReportsView />}
-        {currentTab === 'SETTINGS' && <SettingsView />}
+        {currentRole === 'ADMIN' && activeTabToRender === 'CATALOG' && <CatalogView />}
+        {currentRole === 'ADMIN' && activeTabToRender === 'SERVICES' && <ServicesView />}
+        {currentRole === 'ADMIN' && activeTabToRender === 'INVENTORY' && <InventoryView />}
+        {currentRole === 'ADMIN' && activeTabToRender === 'REPORTS' && <ReportsView />}
+        {currentRole === 'ADMIN' && activeTabToRender === 'SETTINGS' && <SettingsView />}
       </main>
     </div>
   );

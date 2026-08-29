@@ -263,8 +263,79 @@ export function SettingsView() {
         </div>
       </form>
 
+      {/* SECURITY & ADMIN PASSWORD MANAGEMENT */}
+      <AdminPasswordSection />
+
       {/* BARBERS MANAGEMENT SECTION */}
       <BarberManagerSection />
+    </div>
+  );
+}
+
+function AdminPasswordSection() {
+  const { adminPassword, setAdminPassword } = useBarberStore();
+  const [currentInputPass, setCurrentInputPass] = useState(adminPassword);
+  const [passSaved, setPassSaved] = useState(false);
+
+  React.useEffect(() => {
+    setCurrentInputPass(adminPassword);
+  }, [adminPassword]);
+
+  const handleSavePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentInputPass.trim()) return;
+    setAdminPassword(currentInputPass.trim());
+    setPassSaved(true);
+    setTimeout(() => setPassSaved(false), 3000);
+  };
+
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4 shadow-lg">
+      <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 bg-amber-500/10 text-amber-500 rounded-xl">
+            <Settings className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              🔐 Seguridad y Contraseña de Administrador (Dueño)
+            </h3>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Esta clave se solicita para cambiar de rol Barbero a Dueño y proteger los reportes.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <form onSubmit={handleSavePassword} className="flex flex-col sm:flex-row items-end gap-3 pt-1">
+        <div className="flex-1 space-y-1">
+          <label className="text-xs font-semibold text-zinc-400 block">
+            Contraseña o PIN de Acceso Administrador:
+          </label>
+          <input
+            type="text"
+            required
+            value={currentInputPass}
+            onChange={(e) => setCurrentInputPass(e.target.value)}
+            placeholder="Ejemplo: 1234"
+            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 font-mono font-bold text-amber-400 text-sm focus:outline-none focus:border-amber-500"
+          />
+        </div>
+
+        <button
+          type="submit"
+          className="px-5 py-3 bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold rounded-xl text-xs shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center gap-2 shrink-0"
+        >
+          <Save className="w-4 h-4" />
+          Actualizar Clave
+        </button>
+      </form>
+
+      {passSaved && (
+        <p className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+          <CheckCircle2 className="w-4 h-4" /> ¡Contraseña de administrador actualizada con éxito!
+        </p>
+      )}
     </div>
   );
 }

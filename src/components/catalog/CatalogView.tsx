@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useBarberStore } from '../../lib/store';
-import { Product } from '../../types';
+import { Product, CommissionType } from '../../types';
 import {
   Package,
   Plus,
@@ -15,6 +15,7 @@ import {
   Check,
   X,
   Upload,
+  Scissors,
 } from 'lucide-react';
 
 export function CatalogView() {
@@ -36,6 +37,8 @@ export function CatalogView() {
   const [category, setCategory] = useState('Peinado');
   const [imageUrl, setImageUrl] = useState('');
   const [isBeverage, setIsBeverage] = useState(false);
+  const [barberCommissionType, setBarberCommissionType] = useState<CommissionType>('FIXED');
+  const [barberCommissionValue, setBarberCommissionValue] = useState('40');
 
   const openAddModal = () => {
     setEditingProduct(null);
@@ -48,6 +51,8 @@ export function CatalogView() {
     setCategory('Peinado');
     setImageUrl('/images/pomada_mate.png');
     setIsBeverage(false);
+    setBarberCommissionType('FIXED');
+    setBarberCommissionValue('40');
     setShowModal(true);
   };
 
@@ -62,6 +67,8 @@ export function CatalogView() {
     setCategory(p.category);
     setImageUrl(p.imageUrl);
     setIsBeverage(p.isBeverage);
+    setBarberCommissionType(p.barberCommissionType || 'FIXED');
+    setBarberCommissionValue((p.barberCommissionValue ?? 0).toString());
     setShowModal(true);
   };
 
@@ -87,6 +94,7 @@ export function CatalogView() {
     const numericCost = parseFloat(cost) || 0;
     const numericStock = parseInt(stock) || 0;
     const numericMinStock = parseInt(minStock) || 3;
+    const numericCommissionValue = parseFloat(barberCommissionValue) || 0;
 
     if (editingProduct) {
       updateProduct({
@@ -100,6 +108,8 @@ export function CatalogView() {
         category,
         imageUrl: imageUrl || (isBeverage ? '/images/whiskey.png' : '/images/pomada_mate.png'),
         isBeverage,
+        barberCommissionType,
+        barberCommissionValue: numericCommissionValue,
       });
     } else {
       addProduct({
@@ -113,6 +123,8 @@ export function CatalogView() {
         imageUrl: imageUrl || (isBeverage ? '/images/whiskey.png' : '/images/pomada_mate.png'),
         isBeverage,
         active: true,
+        barberCommissionType,
+        barberCommissionValue: numericCommissionValue,
       });
     }
 
@@ -249,28 +261,39 @@ export function CatalogView() {
               </div>
 
               {/* Price & Cost breakdown */}
-              <div className="pt-2 border-t border-zinc-800/80 flex items-center justify-between text-xs font-mono">
-                <div>
-                  <span className="text-zinc-500 block text-[10px]">Costo: ${prod.cost}</span>
-                  <span className="text-base font-extrabold text-amber-400">
-                    ${prod.price.toFixed(2)}
-                  </span>
+              <div className="pt-2 border-t border-zinc-800/80 space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-mono">
+                  <div>
+                    <span className="text-zinc-500 block text-[10px]">Costo: ${prod.cost}</span>
+                    <span className="text-base font-extrabold text-amber-400">
+                      ${prod.price.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => openEditModal(prod)}
+                      className="p-2 bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 rounded-lg transition-colors"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm(`¿Eliminar ${prod.name}?`)) deleteProduct(prod.id);
+                      }}
+                      className="p-2 bg-zinc-950 hover:bg-red-500/20 border border-zinc-800 text-red-400 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => openEditModal(prod)}
-                    className="p-2 bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 rounded-lg transition-colors"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (confirm(`¿Eliminar ${prod.name}?`)) deleteProduct(prod.id);
-                    }}
-                    className="p-2 bg-zinc-950 hover:bg-red-500/20 border border-zinc-800 text-red-400 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                <div className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded w-fit flex items-center gap-1">
+                  <Scissors className="w-3 h-3 text-emerald-400" />
+                  <span>
+                    Comisión Barbero:{' '}
+                    {prod.barberCommissionType === 'PERCENTAGE'
+                      ? `${prod.barberCommissionValue || 0}% ($${((prod.price * (prod.barberCommissionValue || 0)) / 100).toFixed(2)})`
+                      : `$${(prod.barberCommissionValue || 0).toFixed(2)}`}
+                  </span>
                 </div>
               </div>
             </div>
@@ -390,6 +413,40 @@ export function CatalogView() {
                     />
                     Es una Bebida
                   </label>
+                </div>
+
+                {/* Barber Commission Config Block */}
+                <div className="col-span-2 bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl space-y-2">
+                  <label className="text-xs font-bold text-amber-400 block flex items-center gap-1.5">
+                    <Scissors className="w-3.5 h-3.5" />
+                    Ganancia / Comisión para el Barbero Empleado:
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] text-zinc-400 block mb-1">Tipo de Comisión:</label>
+                      <select
+                        value={barberCommissionType}
+                        onChange={(e) => setBarberCommissionType(e.target.value as CommissionType)}
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-amber-500 font-semibold"
+                      >
+                        <option value="FIXED">Monto Fijo ($ MXN)</option>
+                        <option value="PERCENTAGE">Porcentaje (%)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-zinc-400 block mb-1">
+                        {barberCommissionType === 'FIXED' ? 'Comisión Fija ($):' : 'Porcentaje de Comisión (%):'}
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={barberCommissionValue}
+                        onChange={(e) => setBarberCommissionValue(e.target.value)}
+                        placeholder={barberCommissionType === 'FIXED' ? '40' : '20'}
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2 text-xs text-amber-400 font-mono font-bold focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Photo upload field */}

@@ -1,4 +1,8 @@
+export type UserRole = 'ADMIN' | 'BARBER';
+
 export type ItemType = 'SERVICE' | 'PRODUCT' | 'BEVERAGE';
+
+export type CommissionType = 'FIXED' | 'PERCENTAGE';
 
 export interface Product {
   id: string;
@@ -13,6 +17,8 @@ export interface Product {
   isBeverage: boolean;
   active: boolean;
   createdAt: string;
+  barberCommissionType?: CommissionType; // 'FIXED' | 'PERCENTAGE'
+  barberCommissionValue?: number;        // Monto en $ o Porcentaje %
 }
 
 export interface Service {
@@ -24,6 +30,8 @@ export interface Service {
   imageUrl: string;
   category: string;
   active: boolean;
+  barberCommissionType?: CommissionType; // 'FIXED' | 'PERCENTAGE'
+  barberCommissionValue?: number;        // Monto en $ o Porcentaje %
 }
 
 export interface Barber {
@@ -44,6 +52,7 @@ export interface CartItem {
   quantity: number;
   isCourtesy?: boolean; // Only for beverages or special courtesy items
   imageUrl?: string;
+  barberCommissionUnit?: number; // Comisión por unidad para el barbero
 }
 
 export type PaymentMethod = 'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA';
@@ -58,6 +67,7 @@ export interface SaleItem {
   unitPrice: number;
   isCourtesy: boolean;
   totalPrice: number;
+  barberCommissionUnit?: number;
 }
 
 export interface Sale {
@@ -68,12 +78,14 @@ export interface Sale {
   items: CartItem[];
   subtotal: number;
   discount: number;
+  tip?: number; // Propina para el barbero
   total: number;
   paymentMethod: PaymentMethod;
   amountPaid: number;
   changeDue: number;
   createdAt: string;
   customerNotes?: string;
+  totalBarberCommission?: number; // Suma total de comisiones de esta venta para el barbero
 }
 
 export interface InventoryLog {

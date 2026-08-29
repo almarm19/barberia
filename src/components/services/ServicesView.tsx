@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useBarberStore } from '../../lib/store';
-import { Service } from '../../types';
+import { Service, CommissionType } from '../../types';
 import { Scissors, Plus, Edit2, Trash2, Clock, DollarSign, X } from 'lucide-react';
 
 export function ServicesView() {
@@ -17,6 +17,8 @@ export function ServicesView() {
   const [durationMinutes, setDurationMinutes] = useState('30');
   const [category, setCategory] = useState('Cortes');
   const [imageUrl, setImageUrl] = useState('/images/corte_skin_fade.png');
+  const [barberCommissionType, setBarberCommissionType] = useState<CommissionType>('PERCENTAGE');
+  const [barberCommissionValue, setBarberCommissionValue] = useState('50');
 
   const openAddModal = () => {
     setEditingService(null);
@@ -26,6 +28,8 @@ export function ServicesView() {
     setDurationMinutes('30');
     setCategory('Cortes');
     setImageUrl('/images/corte_skin_fade.png');
+    setBarberCommissionType('PERCENTAGE');
+    setBarberCommissionValue('50');
     setShowModal(true);
   };
 
@@ -37,6 +41,8 @@ export function ServicesView() {
     setDurationMinutes(s.durationMinutes.toString());
     setCategory(s.category);
     setImageUrl(s.imageUrl);
+    setBarberCommissionType(s.barberCommissionType || 'PERCENTAGE');
+    setBarberCommissionValue((s.barberCommissionValue ?? 50).toString());
     setShowModal(true);
   };
 
@@ -46,6 +52,7 @@ export function ServicesView() {
 
     const numericPrice = parseFloat(price) || 0;
     const numericDuration = parseInt(durationMinutes) || 30;
+    const numericCommissionValue = parseFloat(barberCommissionValue) || 0;
 
     if (editingService) {
       updateService({
@@ -56,6 +63,8 @@ export function ServicesView() {
         durationMinutes: numericDuration,
         category,
         imageUrl,
+        barberCommissionType,
+        barberCommissionValue: numericCommissionValue,
       });
     } else {
       addService({
@@ -66,6 +75,8 @@ export function ServicesView() {
         category,
         imageUrl: imageUrl || '/images/corte_skin_fade.png',
         active: true,
+        barberCommissionType,
+        barberCommissionValue: numericCommissionValue,
       });
     }
 
@@ -82,7 +93,7 @@ export function ServicesView() {
             Catálogo de Servicios y Costos
           </h2>
           <p className="text-xs text-zinc-400 mt-1">
-            Configura los servicios ofrecidos, tiempos de atención y precios.
+            Configura los servicios ofrecidos, tiempos de atención, precios y comisiones para barberos.
           </p>
         </div>
 
@@ -120,30 +131,44 @@ export function ServicesView() {
                 <p className="text-xs text-zinc-400 line-clamp-2 mt-1">{serv.description}</p>
               </div>
 
-              <div className="pt-2 border-t border-zinc-800/80 flex items-center justify-between">
-                <span className="text-xs text-zinc-400 flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-amber-500" /> {serv.durationMinutes} min
-                </span>
-                <div className="flex items-center gap-3">
-                  <span className="text-lg font-extrabold text-amber-400 font-mono">
-                    ${serv.price.toFixed(2)}
+              <div className="pt-2 border-t border-zinc-800/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-zinc-400 flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 text-amber-500" /> {serv.durationMinutes} min
                   </span>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => openEditModal(serv)}
-                      className="p-2 bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 rounded-lg"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (confirm(`¿Eliminar el servicio ${serv.name}?`)) deleteService(serv.id);
-                      }}
-                      className="p-2 bg-zinc-950 hover:bg-red-500/20 border border-zinc-800 text-red-400 rounded-lg"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg font-extrabold text-amber-400 font-mono">
+                      ${serv.price.toFixed(2)}
+                    </span>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => openEditModal(serv)}
+                        className="p-2 bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 rounded-lg"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm(`¿Eliminar el servicio ${serv.name}?`)) deleteService(serv.id);
+                        }}
+                        className="p-2 bg-zinc-950 hover:bg-red-500/20 border border-zinc-800 text-red-400 rounded-lg"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
+                </div>
+
+                <div className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-lg flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <Scissors className="w-3 h-3 text-emerald-400" />
+                    Comisión Barbero:
+                  </span>
+                  <span className="font-mono font-black text-amber-300">
+                    {serv.barberCommissionType === 'FIXED'
+                      ? `$${(serv.barberCommissionValue || 0).toFixed(2)}`
+                      : `${serv.barberCommissionValue || 50}% ($${((serv.price * (serv.barberCommissionValue || 50)) / 100).toFixed(2)})`}
+                  </span>
                 </div>
               </div>
             </div>
@@ -233,6 +258,40 @@ export function ServicesView() {
                   <option value="Facial">Tratamientos Faciales</option>
                   <option value="Color">Colorimetría</option>
                 </select>
+              </div>
+
+              {/* Barber Commission Config Block */}
+              <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl space-y-2">
+                <label className="text-xs font-bold text-amber-400 block flex items-center gap-1.5">
+                  <Scissors className="w-3.5 h-3.5" />
+                  Comisión para el Barbero:
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] text-zinc-400 block mb-1">Tipo:</label>
+                    <select
+                      value={barberCommissionType}
+                      onChange={(e) => setBarberCommissionType(e.target.value as CommissionType)}
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-amber-500 font-semibold"
+                    >
+                      <option value="PERCENTAGE">Porcentaje (%)</option>
+                      <option value="FIXED">Monto Fijo ($ MXN)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-zinc-400 block mb-1">
+                      {barberCommissionType === 'PERCENTAGE' ? 'Porcentaje (%):' : 'Monto Fijo ($):'}
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={barberCommissionValue}
+                      onChange={(e) => setBarberCommissionValue(e.target.value)}
+                      placeholder={barberCommissionType === 'PERCENTAGE' ? '50' : '100'}
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2 text-xs text-amber-400 font-mono font-bold focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="pt-3 border-t border-zinc-800 flex justify-end gap-2">

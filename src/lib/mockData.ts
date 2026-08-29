@@ -29,6 +29,8 @@ export const INITIAL_SERVICES: Service[] = [
     imageUrl: '/images/corte_skin_fade.png',
     category: 'Cortes',
     active: true,
+    barberCommissionType: 'PERCENTAGE',
+    barberCommissionValue: 50, // 50% = $125.00 comisión
   },
   {
     id: 's2',
@@ -39,6 +41,8 @@ export const INITIAL_SERVICES: Service[] = [
     imageUrl: '/images/arreglo_barba_spa.png',
     category: 'Barba',
     active: true,
+    barberCommissionType: 'PERCENTAGE',
+    barberCommissionValue: 50, // 50% = $90.00 comisión
   },
   {
     id: 's3',
@@ -49,6 +53,8 @@ export const INITIAL_SERVICES: Service[] = [
     imageUrl: '/images/corte_skin_fade.png',
     category: 'Combos',
     active: true,
+    barberCommissionType: 'PERCENTAGE',
+    barberCommissionValue: 50, // 50% = $190.00 comisión
   },
   {
     id: 's4',
@@ -59,6 +65,8 @@ export const INITIAL_SERVICES: Service[] = [
     imageUrl: '/images/arreglo_barba_spa.png',
     category: 'Facial',
     active: true,
+    barberCommissionType: 'PERCENTAGE',
+    barberCommissionValue: 40, // 40% = $60.00 comisión
   },
   {
     id: 's5',
@@ -69,6 +77,8 @@ export const INITIAL_SERVICES: Service[] = [
     imageUrl: '/images/corte_skin_fade.png',
     category: 'Color',
     active: true,
+    barberCommissionType: 'PERCENTAGE',
+    barberCommissionValue: 50, // 50% = $100.00 comisión
   },
 ];
 
@@ -86,6 +96,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     isBeverage: false,
     active: true,
     createdAt: new Date().toISOString(),
+    barberCommissionType: 'FIXED',
+    barberCommissionValue: 40, // $40.00 por pomada vendida
   },
   {
     id: 'p2',
@@ -100,6 +112,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     isBeverage: false,
     active: true,
     createdAt: new Date().toISOString(),
+    barberCommissionType: 'FIXED',
+    barberCommissionValue: 50, // $50.00 por aceite vendido
   },
   {
     id: 'p3',
@@ -114,6 +128,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     isBeverage: false,
     active: true,
     createdAt: new Date().toISOString(),
+    barberCommissionType: 'FIXED',
+    barberCommissionValue: 40,
   },
 
   // BEVERAGES / BEBIDAS
@@ -130,6 +146,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     isBeverage: true,
     active: true,
     createdAt: new Date().toISOString(),
+    barberCommissionType: 'FIXED',
+    barberCommissionValue: 15,
   },
   {
     id: 'b_bev2',
@@ -144,6 +162,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     isBeverage: true,
     active: true,
     createdAt: new Date().toISOString(),
+    barberCommissionType: 'FIXED',
+    barberCommissionValue: 10,
   },
   {
     id: 'b_bev3',
@@ -158,6 +178,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     isBeverage: true,
     active: true,
     createdAt: new Date().toISOString(),
+    barberCommissionType: 'FIXED',
+    barberCommissionValue: 5,
   },
   {
     id: 'b_bev4',
@@ -172,6 +194,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     isBeverage: true,
     active: true,
     createdAt: new Date().toISOString(),
+    barberCommissionType: 'FIXED',
+    barberCommissionValue: 5,
   },
   {
     id: 'b_bev5',
@@ -186,6 +210,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     isBeverage: true,
     active: true,
     createdAt: new Date().toISOString(),
+    barberCommissionType: 'FIXED',
+    barberCommissionValue: 5,
   },
 ];
 
