@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { BarberManagerModal } from '../pos/BarberManagerModal';
 import { useBarberStore } from '../../lib/store';
-import { Settings, Save, MapPin, Phone, FileText, CheckCircle2, Database, Upload } from 'lucide-react';
+import { Settings, Save, MapPin, Phone, FileText, CheckCircle2, Database, Upload, Trash2 } from 'lucide-react';
 
 const InstagramIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" width="1em" height="1em" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" {...props}>
@@ -125,7 +125,7 @@ export function SettingsView() {
         </h3>
 
         <div className="bg-zinc-950 p-4 rounded-xl border border-zinc-800 space-y-3">
-          <label className="text-xs font-semibold text-zinc-400 block flex items-center justify-between">
+          <label className="text-xs font-semibold text-zinc-400 flex items-center justify-between">
             <span>Logo del Ticket & Barbería:</span>
             <span className="text-[10px] text-amber-500 font-bold">Aparece en el encabezado del ticket impreso</span>
           </label>
@@ -183,7 +183,7 @@ export function SettingsView() {
           </div>
 
           <div className="sm:col-span-2">
-            <label className="text-xs font-semibold text-zinc-400 block mb-1 flex items-center gap-1">
+            <label className="text-xs font-semibold text-zinc-400 mb-1 flex items-center gap-1">
               <MapPin className="w-3.5 h-3.5 text-amber-500" /> Dirección Completa:
             </label>
             <input
@@ -196,7 +196,7 @@ export function SettingsView() {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-zinc-400 block mb-1 flex items-center gap-1">
+            <label className="text-xs font-semibold text-zinc-400 mb-1 flex items-center gap-1">
               <InstagramIcon className="w-3.5 h-3.5 text-amber-500" /> Usuario de Instagram:
             </label>
             <div className="relative">
@@ -211,7 +211,7 @@ export function SettingsView() {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-zinc-400 block mb-1 flex items-center gap-1">
+            <label className="text-xs font-semibold text-zinc-400 mb-1 flex items-center gap-1">
               <Phone className="w-3.5 h-3.5 text-amber-500" /> Teléfono de Contacto:
             </label>
             <input
@@ -263,11 +263,172 @@ export function SettingsView() {
         </div>
       </form>
 
+      {/* REALTIME MULTI-DEVICE & SUPABASE SECTION */}
+      <SupabaseRealtimeSection />
+
+      {/* DATA MAINTENANCE & CLEANUP SECTION */}
+      <DataResetSection />
+
       {/* SECURITY & ADMIN PASSWORD MANAGEMENT */}
       <AdminPasswordSection />
 
       {/* BARBERS MANAGEMENT SECTION */}
       <BarberManagerSection />
+    </div>
+  );
+}
+
+function SupabaseRealtimeSection() {
+  const { isSupabaseConfigured, isRealtimeActive, fetchFromSupabase } = useBarberStore();
+  const [syncing, setSyncing] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  const handleForceSync = async () => {
+    setSyncing(true);
+    setMsg('');
+    await fetchFromSupabase();
+    setSyncing(false);
+    setMsg('¡Sincronización completada con éxito!');
+    setTimeout(() => setMsg(''), 3000);
+  };
+
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4 shadow-lg">
+      <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-xl">
+            <Database className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              ⚡ Sincronización Multi-Dispositivo en Tiempo Real
+            </h3>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Estado de la conexión en vivo con Supabase Cloud
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {isSupabaseConfigured ? (
+            <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full text-xs font-bold flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              {isRealtimeActive ? 'Tiempo Real Activo' : 'Conectado a la Nube'}
+            </span>
+          ) : (
+            <span className="px-3 py-1 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-full text-xs font-bold flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+              Modo Local / Caché Dispositivo
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="text-xs text-zinc-300 space-y-2 bg-zinc-950 p-4 rounded-xl border border-zinc-800">
+        {isSupabaseConfigured ? (
+          <p className="text-zinc-300 leading-relaxed">
+            🟢 <strong>Servidor en la Nube Conectado</strong>: Cualquier venta realizada en este iPad/dispositivo aparecerá instantáneamente en todos los demás iPads o celulares conectados a la liga sin presionar F5/refrescar.
+          </p>
+        ) : (
+          <div className="space-y-1.5">
+            <p className="text-amber-400 font-bold">
+              ℹ️ Los datos actualmente se guardan en la memoria local de este dispositivo.
+            </p>
+            <p className="text-zinc-400">
+              Para habilitar la <strong>sincronización en vivo entre múltiples iPads/celulares</strong>, agrega las variables <code className="text-amber-400 font-mono bg-zinc-900 px-1 py-0.5 rounded">NEXT_PUBLIC_SUPABASE_URL</code> y <code className="text-amber-400 font-mono bg-zinc-900 px-1 py-0.5 rounded">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> en tu panel de Vercel.
+            </p>
+          </div>
+        )}
+
+        {isSupabaseConfigured && (
+          <div className="pt-2 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={handleForceSync}
+              disabled={syncing}
+              className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 border border-zinc-700 transition-all active:scale-95"
+            >
+              🔄 {syncing ? 'Sincronizando...' : 'Forzar Sincronización con la Nube'}
+            </button>
+            {msg && <span className="text-xs text-emerald-400 font-bold">{msg}</span>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DataResetSection() {
+  const { clearAllMockData } = useBarberStore();
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [doneMsg, setDoneMsg] = useState(false);
+
+  const handleClear = async () => {
+    await clearAllMockData();
+    setShowConfirm(false);
+    setDoneMsg(true);
+    setTimeout(() => setDoneMsg(false), 4000);
+  };
+
+  return (
+    <div className="bg-zinc-900 border border-red-900/30 rounded-2xl p-6 space-y-4 shadow-lg">
+      <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 bg-red-500/10 text-red-500 rounded-xl">
+            <Trash2 className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              🧹 Limpieza de Datos y Reseteo del Sistema
+            </h3>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Elimina los productos, servicios y ventas de demostración para iniciar limpio.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-zinc-950 p-4 rounded-xl border border-zinc-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <p className="text-xs font-bold text-white">¿Quieres eliminar los datos de prueba?</p>
+          <p className="text-[11px] text-zinc-400">
+            Esto borrará los cortes, bebidas y tickets de prueba para que ingreses tus datos reales. No volverán a salir al refrescar.
+          </p>
+        </div>
+
+        {!showConfirm ? (
+          <button
+            type="button"
+            onClick={() => setShowConfirm(true)}
+            className="px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 font-bold rounded-xl text-xs flex items-center gap-2 shrink-0 transition-all"
+          >
+            🗑️ Limpiar Datos de Prueba
+          </button>
+        ) : (
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleClear}
+              className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs shadow-lg transition-all"
+            >
+              Sí, Borrar Todo
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowConfirm(false)}
+              className="px-3.5 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold rounded-xl text-xs transition-all"
+            >
+              Cancelar
+            </button>
+          </div>
+        )}
+      </div>
+
+      {doneMsg && (
+        <p className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+          <CheckCircle2 className="w-4 h-4" /> ¡Sistema limpiado exitosamente! Ya puedes agregar tus productos y servicios reales.
+        </p>
+      )}
     </div>
   );
 }
@@ -341,7 +502,7 @@ function AdminPasswordSection() {
 }
 
 function BarberManagerSection() {
-  const { barbers, deleteBarber } = useBarberStore();
+  const { barbers } = useBarberStore();
   const [showModal, setShowModal] = useState(false);
 
   return (
@@ -356,6 +517,7 @@ function BarberManagerSection() {
           </p>
         </div>
         <button
+          type="button"
           onClick={() => setShowModal(true)}
           className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold rounded-xl text-xs shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center gap-2 w-fit"
         >
@@ -377,6 +539,7 @@ function BarberManagerSection() {
               </div>
             </div>
             <button
+              type="button"
               onClick={() => setShowModal(true)}
               className="px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-lg text-xs font-semibold border border-zinc-800"
             >
