@@ -1,6 +1,5 @@
-const CACHE_NAME = 'barbas-cuts-pos-v2';
+const CACHE_NAME = 'barbas-cuts-pos-v3';
 const ASSETS_TO_CACHE = [
-  '/',
   '/manifest.json',
   '/images/logo_barbas_cuts.svg',
   '/images/corte_skin_fade.png',
@@ -15,67 +14,56 @@ const ASSETS_TO_CACHE = [
   '/images/agua_mineral.png'
 ];
 
-// INSTALL EVENT - Cache essential assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    }).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(ASSETS_TO_CACHE))
+      .then(() => self.skipWaiting())
   );
 });
 
-// ACTIVATE EVENT - Clean old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            return caches.delete(cache);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
+    caches.keys().then((cacheNames) => Promise.all(
+      cacheNames.map((cache) => {
+        if (cache !== CACHE_NAME) return caches.delete(cache);
+        return Promise.resolve();
+      })
+    )).then(() => self.clients.claim())
   );
 });
 
-// FETCH EVENT - Serve from cache first, fallback to network
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
+  const request = event.request;
+  if (request.method !== 'GET') return;
+
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request).catch(() => caches.match('/'))
+    );
+    return;
+  }
 
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
+    caches.match(request).then((cachedResponse) => {
       if (cachedResponse) {
-        // Background update cache if online
-        fetch(event.request)
-          .then((networkResponse) => {
-            if (networkResponse && networkResponse.status === 200) {
-              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse));
-            }
-          })
-          .catch(() => {
-            /* Operating offline - keep cached response */
-          });
+        fetch(request).then((networkResponse) => {
+          if (networkResponse && networkResponse.ok) {
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, networkResponse.clone()));
+          }
+        }).catch(() => undefined);
         return cachedResponse;
       }
 
-      return fetch(event.request)
+      return fetch(request)
         .then((networkResponse) => {
-          if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-            return networkResponse;
+          if (networkResponse && networkResponse.ok) {
+            const cloned = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, cloned));
           }
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
           return networkResponse;
         })
-        .catch(() => {
-          // If offline and navigating to a page, serve root '/' from cache
-          if (event.request.mode === 'navigate') {
-            return caches.match('/');
-          }
-        });
+        .catch(() => caches.match('/'));
     })
   );
 });

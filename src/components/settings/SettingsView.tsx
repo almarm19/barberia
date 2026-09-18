@@ -266,9 +266,6 @@ export function SettingsView() {
       {/* REALTIME MULTI-DEVICE & SUPABASE SECTION */}
       <SupabaseRealtimeSection />
 
-      {/* DATA MAINTENANCE & CLEANUP SECTION */}
-      <DataResetSection />
-
       {/* SECURITY & ADMIN PASSWORD MANAGEMENT */}
       <AdminPasswordSection />
 
@@ -353,80 +350,6 @@ function SupabaseRealtimeSection() {
   );
 }
 
-function DataResetSection() {
-  const { clearAllMockData } = useBarberStore();
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [doneMsg, setDoneMsg] = useState(false);
-
-  const handleClear = async () => {
-    await clearAllMockData();
-    setShowConfirm(false);
-    setDoneMsg(true);
-    setTimeout(() => setDoneMsg(false), 4000);
-  };
-
-  return (
-    <div className="bg-zinc-900 border border-red-900/30 rounded-2xl p-6 space-y-4 shadow-lg">
-      <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-red-500/10 text-red-500 rounded-xl">
-            <Trash2 className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
-              🧹 Limpieza de Datos y Reseteo del Sistema
-            </h3>
-            <p className="text-xs text-zinc-400 mt-0.5">
-              Elimina los productos, servicios y ventas de demostración para iniciar limpio.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-zinc-950 p-4 rounded-xl border border-zinc-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <p className="text-xs font-bold text-white">¿Quieres eliminar los datos de prueba?</p>
-          <p className="text-[11px] text-zinc-400">
-            Esto borrará los cortes, bebidas y tickets de prueba para que ingreses tus datos reales. No volverán a salir al refrescar.
-          </p>
-        </div>
-
-        {!showConfirm ? (
-          <button
-            type="button"
-            onClick={() => setShowConfirm(true)}
-            className="px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 font-bold rounded-xl text-xs flex items-center gap-2 shrink-0 transition-all"
-          >
-            🗑️ Limpiar Datos de Prueba
-          </button>
-        ) : (
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={handleClear}
-              className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs shadow-lg transition-all"
-            >
-              Sí, Borrar Todo
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowConfirm(false)}
-              className="px-3.5 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold rounded-xl text-xs transition-all"
-            >
-              Cancelar
-            </button>
-          </div>
-        )}
-      </div>
-
-      {doneMsg && (
-        <p className="text-xs font-bold text-emerald-400 flex items-center gap-1">
-          <CheckCircle2 className="w-4 h-4" /> ¡Sistema limpiado exitosamente! Ya puedes agregar tus productos y servicios reales.
-        </p>
-      )}
-    </div>
-  );
-}
 
 function AdminPasswordSection() {
   const { adminPassword, setAdminPassword } = useBarberStore();
