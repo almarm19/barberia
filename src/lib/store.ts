@@ -291,33 +291,9 @@ function applyRemoteSnapshot(remote: Partial<StoreData>) {
         }
       } catch (e) {}
 
-      // 3. Prefer Supabase as the source of truth when configured
-      if (isSupabaseConfigured) {
-        try {
-          const remoteHasData = await fetchFromSupabase();
-          if (!remoteHasData && hasLocalData) {
-            try {
-              const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-              if (saved) {
-                const parsed: StoreData = JSON.parse(saved);
-                applyLocalFallback(parsed);
-              }
-            } catch (e) {}
-          }
-        } catch (error) {
-          console.error('Error initializing store from Supabase:', error);
-          if (hasLocalData) {
-            try {
-              const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-              if (saved) {
-                const parsed: StoreData = JSON.parse(saved);
-                applyLocalFallback(parsed);
-              }
-            } catch (e) {}
-          }
-        }
-        if (isMounted) setIsRealtimeActive(true);
-      } else if (!hasLocalData) {
+      // 3. Render immediately, then let Supabase refresh the state in the background.
+      // The remote snapshot remains authoritative when it arrives.
+      if (!hasLocalData) {
         setProducts(INITIAL_PRODUCTS);
         setServices(INITIAL_SERVICES);
         setBarbers(INITIAL_BARBERS);
@@ -329,6 +305,13 @@ function applyRemoteSnapshot(remote: Partial<StoreData>) {
 
       if (isMounted) {
         setIsLoaded(true);
+      }
+
+      if (isSupabaseConfigured) {
+        fetchFromSupabase().catch((error) => {
+          console.error('Error initializing store from Supabase:', error);
+        });
+        if (isMounted) setIsRealtimeActive(true);
       }
     }
 
