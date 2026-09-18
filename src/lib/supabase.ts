@@ -12,11 +12,22 @@ import {
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+let client: any = null;
+let configured = false;
 
-export const supabase = isSupabaseConfigured
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
+if (supabaseUrl && supabaseAnonKey && supabaseUrl.startsWith('http')) {
+  try {
+    client = createClient(supabaseUrl, supabaseAnonKey);
+    configured = true;
+  } catch (err) {
+    console.error('Error initializing Supabase client:', err);
+    client = null;
+    configured = false;
+  }
+}
+
+export const isSupabaseConfigured = configured;
+export const supabase = client;
 
 // =====================================================================
 // CONVERSORES DTO (FRONTEND <-> SUPABASE)
@@ -225,11 +236,13 @@ export function mapTicketConfigFromDb(row: any): TicketConfig {
     logoUrl: row.logo_url || '/images/logo_barbas_cuts.svg',
     showCourtesyOnTicket: row.show_courtesy_on_ticket !== false,
     showBarberName: row.show_barber_name !== false,
+    adminPassword: row.admin_password || '1234',
   };
 }
 
 export function mapTicketConfigToDb(cfg: TicketConfig): any {
   return {
+    id: 'default',
     business_name: cfg.businessName,
     sub_name: cfg.subName,
     address: cfg.address,
@@ -239,6 +252,7 @@ export function mapTicketConfigToDb(cfg: TicketConfig): any {
     logo_url: cfg.logoUrl,
     show_courtesy_on_ticket: cfg.showCourtesyOnTicket,
     show_barber_name: cfg.showBarberName,
+    admin_password: cfg.adminPassword || '1234',
   };
 }
 

@@ -110,6 +110,15 @@ CREATE TABLE IF NOT EXISTS appointments (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Deshabilitar Row Level Security (RLS) para permitir lectura/escritura pública del POS
+ALTER TABLE ticket_config DISABLE ROW LEVEL SECURITY;
+ALTER TABLE barbers DISABLE ROW LEVEL SECURITY;
+ALTER TABLE products DISABLE ROW LEVEL SECURITY;
+ALTER TABLE services DISABLE ROW LEVEL SECURITY;
+ALTER TABLE sales DISABLE ROW LEVEL SECURITY;
+ALTER TABLE inventory_logs DISABLE ROW LEVEL SECURITY;
+ALTER TABLE appointments DISABLE ROW LEVEL SECURITY;
+
 -- Activar suscripción Realtime en Supabase para sincronización multi-dispositivo
 ALTER PUBLICATION supabase_realtime ADD TABLE ticket_config, barbers, products, services, sales, inventory_logs, appointments;
 

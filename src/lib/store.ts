@@ -85,19 +85,49 @@ export function useBarberStore() {
   };
 
   const setAdminPassword = (newPass: string) => {
-    setAdminPasswordState(newPass);
+    const trimmed = newPass.trim();
+    setAdminPasswordState(trimmed);
     try {
-      localStorage.setItem(LOCAL_STORAGE_PASS_KEY, newPass);
+      localStorage.setItem(LOCAL_STORAGE_PASS_KEY, trimmed);
     } catch (e) {
       console.error('Error saving admin password to localStorage', e);
+    }
+
+    const updatedCfg: TicketConfig = { ...ticketConfig, adminPassword: trimmed };
+    setTicketConfig(updatedCfg);
+    persist({ ticketConfig: updatedCfg });
+
+    if (isSupabaseConfigured && supabase) {
+      supabase.from('ticket_config').upsert(mapTicketConfigToDb(updatedCfg)).then((res: any) => {
+        if (res && res.error) console.error('Error updating adminPassword in Supabase:', res.error);
+      });
     }
   };
 
   const validateAdminPassword = (pass: string): boolean => {
     const saved = typeof window !== 'undefined' ? localStorage.getItem(LOCAL_STORAGE_PASS_KEY) : null;
-    const effectivePass = saved || adminPassword || '1234';
+    const effectivePass = ticketConfig.adminPassword || adminPassword || saved || '1234';
+    // Mantenemos sincronizado el localStorage con la clave oficial de la nube
+    if (typeof window !== 'undefined' && saved !== effectivePass) {
+      try {
+        localStorage.setItem(LOCAL_STORAGE_PASS_KEY, effectivePass);
+      } catch (e) {}
+    }
     return pass.trim() === effectivePass.trim();
   };
+
+// Helper function to safely merge local and remote items by ID
+function mergeById<T extends { id: string }>(localItems: T[], remoteItems: T[]): T[] {
+  if (!remoteItems || remoteItems.length === 0) return localItems;
+  const map = new Map<string, T>();
+  for (const item of localItems) {
+    if (item && item.id) map.set(item.id, item);
+  }
+  for (const item of remoteItems) {
+    if (item && item.id) map.set(item.id, item);
+  }
+  return Array.from(map.values());
+}
 
   // Helper function to fetch from Supabase
   const fetchFromSupabase = useCallback(async (): Promise<boolean> => {
@@ -115,34 +145,59 @@ export function useBarberStore() {
 
       let hasData = false;
 
+      // 1. Products
       if (!resProds.error && resProds.data) {
-        setProducts(resProds.data.map(mapProductFromDb));
-        if (resProds.data.length > 0) hasData = true;
+        const remoteProds = resProds.data.map(mapProductFromDb);
+        setProducts(remoteProds);
+        if (remoteProds.length > 0) hasData = true;
       }
+
+      // 2. Services
       if (!resServs.error && resServs.data) {
-        setServices(resServs.data.map(mapServiceFromDb));
-        if (resServs.data.length > 0) hasData = true;
+        const remoteServs = resServs.data.map(mapServiceFromDb);
+        setServices(remoteServs);
+        if (remoteServs.length > 0) hasData = true;
       }
+
+      // 3. Barbers
       if (!resBarbers.error && resBarbers.data) {
-        const mappedBarbers = resBarbers.data.map(mapBarberFromDb);
-        setBarbers(mappedBarbers);
-        if (mappedBarbers.length > 0) {
+        const remoteBarbers = resBarbers.data.map(mapBarberFromDb);
+        if (remoteBarbers.length > 0) {
+          setBarbers(remoteBarbers);
+          setSelectedBarberId((curr) => (remoteBarbers.some((b: Barber) => b.id === curr) ? curr : remoteBarbers[0].id));
           hasData = true;
-          setSelectedBarberId((prev) => (mappedBarbers.some((b) => b.id === prev) ? prev : mappedBarbers[0].id));
+        } else {
+          setBarbers(INITIAL_BARBERS);
         }
       }
+
+      // 4. Sales
       if (!resSales.error && resSales.data) {
-        setSales(resSales.data.map(mapSaleFromDb));
-        if (resSales.data.length > 0) hasData = true;
+        const remoteSales = resSales.data.map(mapSaleFromDb);
+        setSales(remoteSales);
+        if (remoteSales.length > 0) hasData = true;
       }
+
+      // 5. Inventory Logs
       if (!resLogs.error && resLogs.data) {
         setInventoryLogs(resLogs.data.map(mapInventoryLogFromDb));
       }
+
+      // 6. Appointments
       if (!resApts.error && resApts.data) {
         setAppointments(resApts.data.map(mapAppointmentFromDb));
       }
+
+      // 7. Ticket Config
       if (!resCfg.error && resCfg.data && resCfg.data.length > 0) {
-        setTicketConfig(mapTicketConfigFromDb(resCfg.data[0]));
+        const loadedCfg = mapTicketConfigFromDb(resCfg.data[0]);
+        setTicketConfig(loadedCfg);
+        if (loadedCfg.adminPassword) {
+          setAdminPasswordState(loadedCfg.adminPassword);
+          try {
+            localStorage.setItem(LOCAL_STORAGE_PASS_KEY, loadedCfg.adminPassword);
+          } catch (e) {}
+        }
       }
 
       return hasData;
@@ -219,19 +274,24 @@ export function useBarberStore() {
 
     initStore();
 
-    // Setup Supabase Realtime channel subscription
+    // Setup Supabase Realtime channel subscription with a safe unique channel topic
     let channel: any = null;
     if (isSupabaseConfigured && supabase) {
-      channel = supabase
-        .channel('public:pos_realtime')
-        .on('postgres_changes', { event: '*', schema: 'public' }, () => {
-          fetchFromSupabase();
-        })
-        .subscribe((status) => {
-          if (status === 'SUBSCRIBED' && isMounted) {
-            setIsRealtimeActive(true);
-          }
-        });
+      try {
+        const channelId = `pos_realtime_${Math.floor(Math.random() * 1000000)}`;
+        channel = supabase
+          .channel(channelId)
+          .on('postgres_changes', { event: '*', schema: 'public' }, () => {
+            fetchFromSupabase();
+          })
+          .subscribe((status: string) => {
+            if (status === 'SUBSCRIBED' && isMounted) {
+              setIsRealtimeActive(true);
+            }
+          });
+      } catch (err) {
+        console.error('Error starting realtime channel:', err);
+      }
     }
 
     // Setup Cross-tab / Window Storage Event Listener
@@ -239,13 +299,13 @@ export function useBarberStore() {
       if (e.key === LOCAL_STORAGE_KEY && e.newValue) {
         try {
           const parsed: StoreData = JSON.parse(e.newValue);
-          setProducts(parsed.products || []);
-          setServices(parsed.services || []);
-          setBarbers(parsed.barbers || []);
-          setSales(parsed.sales || []);
-          setInventoryLogs(parsed.inventoryLogs || []);
+          setProducts((prev) => mergeById(prev, parsed.products || []));
+          setServices((prev) => mergeById(prev, parsed.services || []));
+          setBarbers((prev) => mergeById(prev, parsed.barbers || []));
+          setSales((prev) => mergeById(prev, parsed.sales || []));
+          setInventoryLogs((prev) => mergeById(prev, parsed.inventoryLogs || []));
           setTicketConfig(parsed.ticketConfig || INITIAL_TICKET_CONFIG);
-          setAppointments(parsed.appointments || []);
+          setAppointments((prev) => mergeById(prev, parsed.appointments || []));
         } catch (err) {}
       }
     };
@@ -255,7 +315,9 @@ export function useBarberStore() {
       isMounted = false;
       window.removeEventListener('storage', handleStorage);
       if (channel && supabase) {
-        supabase.removeChannel(channel);
+        try {
+          supabase.removeChannel(channel);
+        } catch (e) {}
       }
     };
   }, [fetchFromSupabase]);
@@ -281,7 +343,11 @@ export function useBarberStore() {
   // HELPER TO CLEAR ALL MOCK DATA & START CLEAN
   const clearAllMockData = async () => {
     try {
-      localStorage.setItem(LOCAL_STORAGE_CLEARED_MOCK_KEY, 'true');
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(LOCAL_STORAGE_CLEARED_MOCK_KEY, 'true');
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
+      }
+
       setProducts([]);
       setServices([]);
       setSales([]);
@@ -297,22 +363,15 @@ export function useBarberStore() {
       setBarbers(defaultBarbers);
       setSelectedBarberId('b1');
 
-      persist({
-        products: [],
-        services: [],
-        barbers: defaultBarbers,
-        sales: [],
-        inventoryLogs: [],
-        appointments: [],
-      });
-
       if (isSupabaseConfigured && supabase) {
+        // Borrado total permanente en Supabase
         await Promise.all([
-          supabase.from('products').delete().neq('id', ''),
-          supabase.from('services').delete().neq('id', ''),
-          supabase.from('sales').delete().neq('id', ''),
-          supabase.from('inventory_logs').delete().neq('id', ''),
-          supabase.from('appointments').delete().neq('id', ''),
+          supabase.from('products').delete().gt('created_at', '1970-01-01T00:00:00Z'),
+          supabase.from('services').delete().gt('created_at', '1970-01-01T00:00:00Z'),
+          supabase.from('sales').delete().gt('created_at', '1970-01-01T00:00:00Z'),
+          supabase.from('inventory_logs').delete().gt('created_at', '1970-01-01T00:00:00Z'),
+          supabase.from('appointments').delete().gt('created_at', '1970-01-01T00:00:00Z'),
+          supabase.from('barbers').delete().gt('created_at', '1970-01-01T00:00:00Z'),
         ]);
         await supabase.from('barbers').upsert(defaultBarbers.map(mapBarberToDb));
       }
@@ -539,8 +598,8 @@ export function useBarberStore() {
     // Write to Supabase in background
     if (isSupabaseConfigured && supabase) {
       const db = supabase;
-      db.from('sales').insert(mapSaleToDb(newSale)).then(({ error }) => {
-        if (error) console.error('Error persisting sale to Supabase', error);
+      db.from('sales').insert(mapSaleToDb(newSale)).then((res: any) => {
+        if (res && res.error) console.error('Error persisting sale to Supabase', res.error);
       });
       if (newLogs.length > 0) {
         db.from('inventory_logs').insert(newLogs.map(mapInventoryLogToDb)).then();

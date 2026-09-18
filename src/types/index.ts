@@ -110,6 +110,7 @@ export interface TicketConfig {
   logoUrl: string;
   showCourtesyOnTicket: boolean;
   showBarberName: boolean;
+  adminPassword?: string;
 }
 
 export type AppointmentStatus = 'CONFIRMADA' | 'PENDIENTE' | 'COMPLETADA' | 'CANCELADA';

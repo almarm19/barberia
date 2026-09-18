@@ -327,17 +327,12 @@ function SupabaseRealtimeSection() {
       <div className="text-xs text-zinc-300 space-y-2 bg-zinc-950 p-4 rounded-xl border border-zinc-800">
         {isSupabaseConfigured ? (
           <p className="text-zinc-300 leading-relaxed">
-            🟢 <strong>Servidor en la Nube Conectado</strong>: Cualquier venta realizada en este iPad/dispositivo aparecerá instantáneamente en todos los demás iPads o celulares conectados a la liga sin presionar F5/refrescar.
+            🟢 <strong>Servidor en la Nube Conectado</strong>: Todos los cambios se sincronizan en vivo entre tus dispositivos.
           </p>
         ) : (
-          <div className="space-y-1.5">
-            <p className="text-amber-400 font-bold">
-              ℹ️ Los datos actualmente se guardan en la memoria local de este dispositivo.
-            </p>
-            <p className="text-zinc-400">
-              Para habilitar la <strong>sincronización en vivo entre múltiples iPads/celulares</strong>, agrega las variables <code className="text-amber-400 font-mono bg-zinc-900 px-1 py-0.5 rounded">NEXT_PUBLIC_SUPABASE_URL</code> y <code className="text-amber-400 font-mono bg-zinc-900 px-1 py-0.5 rounded">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> en tu panel de Vercel.
-            </p>
-          </div>
+          <p className="text-zinc-400 leading-relaxed">
+            💾 <strong>Almacenamiento Local Activo</strong>: Tus datos están guardados de forma segura en este dispositivo.
+          </p>
         )}
 
         {isSupabaseConfigured && (
@@ -348,7 +343,7 @@ function SupabaseRealtimeSection() {
               disabled={syncing}
               className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 border border-zinc-700 transition-all active:scale-95"
             >
-              🔄 {syncing ? 'Sincronizando...' : 'Forzar Sincronización con la Nube'}
+              🔄 {syncing ? 'Sincronizando...' : 'Forzar Sincronización'}
             </button>
             {msg && <span className="text-xs text-emerald-400 font-bold">{msg}</span>}
           </div>
