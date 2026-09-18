@@ -134,36 +134,40 @@ function mergeById<T extends { id: string }>(localItems: T[], remoteItems: T[]):
   return Array.from(map.values());
 }
 
-function mergeStoreData(local: Partial<StoreData>, remote: Partial<StoreData>): StoreData {
-  const safeLocal: StoreData = {
-    products: local.products ?? [],
-    services: local.services ?? [],
-    barbers: local.barbers ?? [],
-    sales: local.sales ?? [],
-    inventoryLogs: local.inventoryLogs ?? [],
-    ticketConfig: local.ticketConfig ?? INITIAL_TICKET_CONFIG,
-    appointments: local.appointments ?? [],
-  };
+function applyLocalFallback(parsed: Partial<StoreData>) {
+  if (parsed.products && parsed.products.length > 0) {
+    setProducts(parsed.products);
+  }
+  if (parsed.services && parsed.services.length > 0) {
+    setServices(parsed.services);
+  }
+  if (parsed.barbers && parsed.barbers.length > 0) {
+    setBarbers(parsed.barbers);
+    setSelectedBarberId(parsed.barbers[0].id);
+  }
+  if (parsed.sales) setSales(parsed.sales);
+  if (parsed.inventoryLogs) setInventoryLogs(parsed.inventoryLogs);
+  if (parsed.ticketConfig) setTicketConfig(parsed.ticketConfig);
+  if (parsed.appointments) setAppointments(parsed.appointments);
+}
 
-  const safeRemote: StoreData = {
-    products: remote.products ?? [],
-    services: remote.services ?? [],
-    barbers: remote.barbers ?? [],
-    sales: remote.sales ?? [],
-    inventoryLogs: remote.inventoryLogs ?? [],
-    ticketConfig: remote.ticketConfig ?? INITIAL_TICKET_CONFIG,
-    appointments: remote.appointments ?? [],
-  };
+function applyRemoteSnapshot(remote: Partial<StoreData>) {
+  const remoteBarbers = remote.barbers ?? [];
 
-  return {
-    products: mergeById(safeLocal.products, safeRemote.products),
-    services: mergeById(safeLocal.services, safeRemote.services),
-    barbers: mergeById(safeLocal.barbers, safeRemote.barbers),
-    sales: mergeById(safeLocal.sales, safeRemote.sales),
-    inventoryLogs: mergeById(safeLocal.inventoryLogs, safeRemote.inventoryLogs),
-    ticketConfig: safeRemote.ticketConfig && safeRemote.ticketConfig.businessName ? safeRemote.ticketConfig : safeLocal.ticketConfig,
-    appointments: mergeById(safeLocal.appointments, safeRemote.appointments),
-  };
+  if (remote.products) setProducts(remote.products);
+  if (remote.services) setServices(remote.services);
+  if (remote.barbers) {
+    setBarbers(remoteBarbers);
+    if (remoteBarbers.length > 0) {
+      setSelectedBarberId((curr) => (
+        remoteBarbers.some((b: Barber) => b.id === curr) ? curr : remoteBarbers[0].id
+      ));
+    }
+  }
+  if (remote.sales) setSales(remote.sales);
+  if (remote.inventoryLogs) setInventoryLogs(remote.inventoryLogs);
+  if (remote.ticketConfig) setTicketConfig(remote.ticketConfig);
+  if (remote.appointments) setAppointments(remote.appointments);
 }
 
   // Helper function to fetch from Supabase
@@ -199,64 +203,50 @@ function mergeStoreData(local: Partial<StoreData>, remote: Partial<StoreData>): 
 
       if (!resProds.error && resProds.data) {
         const remoteProds = resProds.data.map(mapProductFromDb);
-        setProducts((prev) => (requestId !== fetchRequestIdRef.current ? prev : mergeById(prev, remoteProds)));
+        setProducts(remoteProds);
         if (remoteProds.length > 0) hasData = true;
       }
 
       if (!resServs.error && resServs.data) {
         const remoteServs = resServs.data.map(mapServiceFromDb);
-        setServices((prev) => (requestId !== fetchRequestIdRef.current ? prev : mergeById(prev, remoteServs)));
+        setServices(remoteServs);
         if (remoteServs.length > 0) hasData = true;
       }
 
       if (!resBarbers.error && resBarbers.data) {
         const remoteBarbers = resBarbers.data.map(mapBarberFromDb);
-        setBarbers((prev) => {
-          if (requestId !== fetchRequestIdRef.current) return prev;
-          const merged = mergeById(prev, remoteBarbers);
-          if (merged.length > 0) {
-            setSelectedBarberId((curr) => (
-              merged.some((b: Barber) => b.id === curr) ? curr : merged[0].id
-            ));
-          }
-          return merged;
-        });
+        setBarbers(remoteBarbers);
         if (remoteBarbers.length > 0) {
+          setSelectedBarberId((curr) => (
+            remoteBarbers.some((b: Barber) => b.id === curr) ? curr : remoteBarbers[0].id
+          ));
           hasData = true;
-        } else {
-          setBarbers((prev) => (requestId !== fetchRequestIdRef.current ? prev : (prev && prev.length > 0 ? prev : INITIAL_BARBERS)));
         }
       }
 
       if (!resSales.error && resSales.data) {
         const remoteSales = resSales.data.map(mapSaleFromDb);
-        setSales((prev) => (requestId !== fetchRequestIdRef.current ? prev : mergeById(prev, remoteSales)));
+        setSales(remoteSales);
         if (remoteSales.length > 0) hasData = true;
       }
 
       if (!resLogs.error && resLogs.data) {
-        const remoteLogs = resLogs.data.map(mapInventoryLogFromDb);
-        setInventoryLogs((prev) => (requestId !== fetchRequestIdRef.current ? prev : mergeById(prev, remoteLogs)));
+        setInventoryLogs(resLogs.data.map(mapInventoryLogFromDb));
       }
 
       if (!resApts.error && resApts.data) {
-        const remoteAppointments = resApts.data.map(mapAppointmentFromDb);
-        setAppointments((prev) => (requestId !== fetchRequestIdRef.current ? prev : mergeById(prev, remoteAppointments)));
+        setAppointments(resApts.data.map(mapAppointmentFromDb));
       }
 
       if (!resCfg.error && resCfg.data && resCfg.data.length > 0) {
         const loadedCfg = mapTicketConfigFromDb(resCfg.data[0]);
-        setTicketConfig((prev) => {
-          if (requestId !== fetchRequestIdRef.current) return prev;
-          const mergedCfg = loadedCfg && loadedCfg.businessName ? loadedCfg : prev;
-          if (mergedCfg.adminPassword) {
-            setAdminPasswordState(mergedCfg.adminPassword);
-            try {
-              localStorage.setItem(LOCAL_STORAGE_PASS_KEY, mergedCfg.adminPassword);
-            } catch (e) {}
-          }
-          return mergedCfg;
-        });
+        setTicketConfig(loadedCfg);
+        if (loadedCfg.adminPassword) {
+          setAdminPasswordState(loadedCfg.adminPassword);
+          try {
+            localStorage.setItem(LOCAL_STORAGE_PASS_KEY, loadedCfg.adminPassword);
+          } catch (e) {}
+        }
       }
 
       return hasData;
@@ -283,38 +273,48 @@ function mergeStoreData(local: Partial<StoreData>, remote: Partial<StoreData>): 
         }
       } catch (e) {}
 
-      // 2. Load Local Cache first
+      // 2. Load Local Cache as offline fallback only
       let hasLocalData = false;
       try {
         const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
         if (saved) {
           const parsed: StoreData = JSON.parse(saved);
-          if (parsed.products && parsed.products.length > 0) {
-            setProducts(parsed.products);
-            hasLocalData = true;
+          hasLocalData = Boolean(
+            (parsed.products && parsed.products.length > 0) ||
+            (parsed.services && parsed.services.length > 0) ||
+            (parsed.barbers && parsed.barbers.length > 0)
+          );
+
+          if (hasLocalData) {
+            applyLocalFallback(parsed);
           }
-          if (parsed.services && parsed.services.length > 0) {
-            setServices(parsed.services);
-            hasLocalData = true;
-          }
-          if (parsed.barbers && parsed.barbers.length > 0) {
-            setBarbers(parsed.barbers);
-            hasLocalData = true;
-            setSelectedBarberId(parsed.barbers[0].id);
-          }
-          if (parsed.sales) setSales(parsed.sales);
-          if (parsed.inventoryLogs) setInventoryLogs(parsed.inventoryLogs);
-          if (parsed.ticketConfig) setTicketConfig(parsed.ticketConfig);
-          if (parsed.appointments) setAppointments(parsed.appointments);
         }
       } catch (e) {}
 
-      // 3. Connect Supabase or Fallback
+      // 3. Prefer Supabase as the source of truth when configured
       if (isSupabaseConfigured) {
         try {
-          await fetchFromSupabase();
+          const remoteHasData = await fetchFromSupabase();
+          if (!remoteHasData && hasLocalData) {
+            try {
+              const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+              if (saved) {
+                const parsed: StoreData = JSON.parse(saved);
+                applyLocalFallback(parsed);
+              }
+            } catch (e) {}
+          }
         } catch (error) {
           console.error('Error initializing store from Supabase:', error);
+          if (hasLocalData) {
+            try {
+              const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+              if (saved) {
+                const parsed: StoreData = JSON.parse(saved);
+                applyLocalFallback(parsed);
+              }
+            } catch (e) {}
+          }
         }
         if (isMounted) setIsRealtimeActive(true);
       } else if (!hasLocalData) {
@@ -360,13 +360,7 @@ function mergeStoreData(local: Partial<StoreData>, remote: Partial<StoreData>): 
       if (e.key === LOCAL_STORAGE_KEY && e.newValue) {
         try {
           const parsed: StoreData = JSON.parse(e.newValue);
-          setProducts((prev) => mergeById(prev, parsed.products || []));
-          setServices((prev) => mergeById(prev, parsed.services || []));
-          setBarbers((prev) => mergeById(prev, parsed.barbers || []));
-          setSales((prev) => mergeById(prev, parsed.sales || []));
-          setInventoryLogs((prev) => mergeById(prev, parsed.inventoryLogs || []));
-          setTicketConfig(parsed.ticketConfig || INITIAL_TICKET_CONFIG);
-          setAppointments((prev) => mergeById(prev, parsed.appointments || []));
+          applyLocalFallback(parsed);
         } catch (err) {}
       }
     };
