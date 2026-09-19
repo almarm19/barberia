@@ -299,9 +299,9 @@ function applyRemoteSnapshot(remote: Partial<StoreData>) {
         } catch (e) {}
       }
 
-      // 3. Render immediately, then let Supabase refresh the state in the background.
-      // The remote snapshot remains authoritative when it arrives.
-      if (!hasLocalData) {
+      // 3. In cloud mode, wait for the first remote snapshot before rendering.
+      // This prevents stale device data from flashing before Supabase responds.
+      if (!isSupabaseConfigured && !hasLocalData) {
         setProducts(INITIAL_PRODUCTS);
         setServices(INITIAL_SERVICES);
         setBarbers(INITIAL_BARBERS);
@@ -311,14 +311,14 @@ function applyRemoteSnapshot(remote: Partial<StoreData>) {
         setSelectedBarberId(INITIAL_BARBERS[0]?.id || 'b1');
       }
 
-      if (isMounted) {
-        setIsLoaded(true);
-      }
-
       if (isSupabaseConfigured) {
-        fetchFromSupabase().catch((error) => {
+        await fetchFromSupabase().catch((error) => {
           console.error('Error initializing store from Supabase:', error);
         });
+      }
+
+      if (isMounted) {
+        setIsLoaded(true);
       }
     }
 
