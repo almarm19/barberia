@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter, Montserrat } from 'next/font/google';
 import './globals.css';
 import { ServiceWorkerRegister } from '../components/common/ServiceWorkerRegister';
+import { BarberStoreProvider } from '../lib/store';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const montserrat = Montserrat({ subsets: ['latin'], variable: '--font-montserrat' });
@@ -41,7 +42,7 @@ export default function RootLayout({
       </head>
       <body className="font-sans bg-zinc-950 text-zinc-100 antialiased selection:bg-amber-500 selection:text-zinc-950">
         <ServiceWorkerRegister />
-        {children}
+        <BarberStoreProvider>{children}</BarberStoreProvider>
       </body>
     </html>
   );

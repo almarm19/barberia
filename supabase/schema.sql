@@ -5,7 +5,7 @@
 
 -- 1. Tabla de Configuración de Tickets y Negocio
 CREATE TABLE IF NOT EXISTS ticket_config (
-  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  id TEXT PRIMARY KEY DEFAULT 'default',
   business_name TEXT NOT NULL DEFAULT 'BARBAS CUTS',
   sub_name TEXT DEFAULT 'BARBER STUDIO',
   address TEXT NOT NULL DEFAULT 'Calle Cipreses mz21 lt12, Los Reyes Acaquilpan, México, 56420',
@@ -15,8 +15,25 @@ CREATE TABLE IF NOT EXISTS ticket_config (
   logo_url TEXT DEFAULT '/images/logo_barbas_cuts.svg',
   show_courtesy_on_ticket BOOLEAN DEFAULT true,
   show_barber_name BOOLEAN DEFAULT true,
+  admin_password TEXT NOT NULL DEFAULT '1234',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Migracion segura para instalaciones creadas con una version anterior.
+ALTER TABLE ticket_config ADD COLUMN IF NOT EXISTS admin_password TEXT NOT NULL DEFAULT '1234';
+ALTER TABLE ticket_config ALTER COLUMN id SET DEFAULT 'default';
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM ticket_config WHERE id = 'default') THEN
+    DELETE FROM ticket_config WHERE id <> 'default';
+  ELSE
+    WITH latest AS (
+      SELECT ctid FROM ticket_config ORDER BY created_at DESC NULLS LAST LIMIT 1
+    )
+    UPDATE ticket_config SET id = 'default'
+    WHERE ctid IN (SELECT ctid FROM latest);
+  END IF;
+END $$;
 
 -- 2. Tabla de Barberos / Estilistas
 CREATE TABLE IF NOT EXISTS barbers (
@@ -119,6 +136,24 @@ ALTER TABLE sales DISABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory_logs DISABLE ROW LEVEL SECURITY;
 ALTER TABLE appointments DISABLE ROW LEVEL SECURITY;
 
--- Activar suscripción Realtime en Supabase para sincronización multi-dispositivo
-ALTER PUBLICATION supabase_realtime ADD TABLE ticket_config, barbers, products, services, sales, inventory_logs, appointments;
+-- Activar Realtime sin fallar si alguna tabla ya estaba registrada.
+DO $$
+DECLARE
+  table_name TEXT;
+BEGIN
+  FOREACH table_name IN ARRAY ARRAY[
+    'ticket_config', 'barbers', 'products', 'services',
+    'sales', 'inventory_logs', 'appointments'
+  ] LOOP
+    IF NOT EXISTS (
+      SELECT 1
+      FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime'
+        AND schemaname = 'public'
+        AND tablename = table_name
+    ) THEN
+      EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', table_name);
+    END IF;
+  END LOOP;
+END $$;
 

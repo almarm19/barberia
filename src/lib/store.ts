@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { createContext, createElement, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import {
   Product,
   Service,
@@ -56,7 +56,7 @@ interface StoreData {
   appointments: Appointment[];
 }
 
-export function useBarberStore() {
+function useBarberStoreState() {
   const [products, setProducts] = useState<Product[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
@@ -75,6 +75,7 @@ export function useBarberStore() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isRealtimeActive, setIsRealtimeActive] = useState<boolean>(false);
   const fetchRequestIdRef = useRef(0);
+  const remoteMutationQueueRef = useRef(Promise.resolve());
 
   const setCurrentRole = (role: UserRole) => {
     setCurrentRoleState(role);
@@ -85,28 +86,32 @@ export function useBarberStore() {
     }
   };
 
-  const setAdminPassword = (newPass: string) => {
+  const setAdminPassword = async (newPass: string): Promise<void> => {
     const trimmed = newPass.trim();
+
+    if (isSupabaseConfigured && supabase) {
+      fetchRequestIdRef.current += 1;
+      const { error } = await supabase
+        .from('ticket_config')
+        .upsert({ id: 'default', admin_password: trimmed }, { onConflict: 'id' });
+      if (error) throw error;
+    }
+
+    const updatedCfg: TicketConfig = { ...ticketConfig, adminPassword: trimmed };
     setAdminPasswordState(trimmed);
+    setTicketConfig(updatedCfg);
     try {
       localStorage.setItem(LOCAL_STORAGE_PASS_KEY, trimmed);
     } catch (e) {
       console.error('Error saving admin password to localStorage', e);
     }
-
-    const updatedCfg: TicketConfig = { ...ticketConfig, adminPassword: trimmed };
-    setTicketConfig(updatedCfg);
     persist({ ticketConfig: updatedCfg });
-
-    if (isSupabaseConfigured && supabase) {
-      supabase.from('ticket_config').upsert(mapTicketConfigToDb(updatedCfg)).then((res: any) => {
-        if (res && res.error) console.error('Error updating adminPassword in Supabase:', res.error);
-      });
-    }
   };
 
   const validateAdminPassword = (pass: string): boolean => {
-    const saved = typeof window !== 'undefined' ? localStorage.getItem(LOCAL_STORAGE_PASS_KEY) : null;
+    const saved = !isSupabaseConfigured && typeof window !== 'undefined'
+      ? localStorage.getItem(LOCAL_STORAGE_PASS_KEY)
+      : null;
     const effectivePass = ticketConfig.adminPassword || adminPassword || saved || '1234';
     // Mantenemos sincronizado el localStorage con la clave oficial de la nube
     if (typeof window !== 'undefined' && saved !== effectivePass) {
@@ -184,7 +189,7 @@ function applyRemoteSnapshot(remote: Partial<StoreData>) {
         supabase.from('sales').select('*').order('created_at', { ascending: false }),
         supabase.from('inventory_logs').select('*').order('created_at', { ascending: false }),
         supabase.from('appointments').select('*').order('created_at', { ascending: false }),
-        supabase.from('ticket_config').select('*').limit(1),
+        supabase.from('ticket_config').select('*').eq('id', 'default').maybeSingle(),
       ]);
 
       const [resProds, resServs, resBarbers, resSales, resLogs, resApts, resCfg] = await Promise.race([
@@ -238,8 +243,8 @@ function applyRemoteSnapshot(remote: Partial<StoreData>) {
         setAppointments(resApts.data.map(mapAppointmentFromDb));
       }
 
-      if (!resCfg.error && resCfg.data && resCfg.data.length > 0) {
-        const loadedCfg = mapTicketConfigFromDb(resCfg.data[0]);
+      if (!resCfg.error && resCfg.data) {
+        const loadedCfg = mapTicketConfigFromDb(resCfg.data);
         setTicketConfig(loadedCfg);
         if (loadedCfg.adminPassword) {
           setAdminPasswordState(loadedCfg.adminPassword);
@@ -268,28 +273,31 @@ function applyRemoteSnapshot(remote: Partial<StoreData>) {
           setCurrentRoleState(savedRole);
         }
         const savedPass = localStorage.getItem(LOCAL_STORAGE_PASS_KEY);
-        if (savedPass) {
+        if (!isSupabaseConfigured && savedPass) {
           setAdminPasswordState(savedPass);
         }
       } catch (e) {}
 
-      // 2. Load Local Cache as offline fallback only
+      // 2. Only use local cache when Supabase is not configured.
+      // With cloud sync enabled, stale local data must never appear as current data.
       let hasLocalData = false;
-      try {
-        const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-        if (saved) {
-          const parsed: StoreData = JSON.parse(saved);
-          hasLocalData = Boolean(
-            (parsed.products && parsed.products.length > 0) ||
-            (parsed.services && parsed.services.length > 0) ||
-            (parsed.barbers && parsed.barbers.length > 0)
-          );
+      if (!isSupabaseConfigured) {
+        try {
+          const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+          if (saved) {
+            const parsed: StoreData = JSON.parse(saved);
+            hasLocalData = Boolean(
+              (parsed.products && parsed.products.length > 0) ||
+              (parsed.services && parsed.services.length > 0) ||
+              (parsed.barbers && parsed.barbers.length > 0)
+            );
 
-          if (hasLocalData) {
-            applyLocalFallback(parsed);
+            if (hasLocalData) {
+              applyLocalFallback(parsed);
+            }
           }
-        }
-      } catch (e) {}
+        } catch (e) {}
+      }
 
       // 3. Render immediately, then let Supabase refresh the state in the background.
       // The remote snapshot remains authoritative when it arrives.
@@ -311,7 +319,6 @@ function applyRemoteSnapshot(remote: Partial<StoreData>) {
         fetchFromSupabase().catch((error) => {
           console.error('Error initializing store from Supabase:', error);
         });
-        if (isMounted) setIsRealtimeActive(true);
       }
     }
 
@@ -330,6 +337,8 @@ function applyRemoteSnapshot(remote: Partial<StoreData>) {
           .subscribe((status: string) => {
             if (status === 'SUBSCRIBED' && isMounted) {
               setIsRealtimeActive(true);
+            } else if (isMounted) {
+              setIsRealtimeActive(false);
             }
           });
       } catch (err) {
@@ -376,6 +385,22 @@ function applyRemoteSnapshot(remote: Partial<StoreData>) {
     } catch (e) {
       console.error('Failed to persist store state', e);
     }
+  };
+
+  const syncRemoteMutation = async (
+    operations: Array<() => PromiseLike<{ error?: { message?: string } | null }>>
+  ) => {
+    const mutation = remoteMutationQueueRef.current.then(async () => {
+      fetchRequestIdRef.current += 1;
+      const results = await Promise.all(operations.map((operation) => operation()));
+      const failed = results.find((result) => result.error);
+      if (failed?.error) {
+        throw new Error(failed.error.message || 'No se pudo guardar en Supabase');
+      }
+      await fetchFromSupabase();
+    });
+    remoteMutationQueueRef.current = mutation.catch(() => undefined);
+    return mutation;
   };
 
   // HELPER TO CALCULATE ITEM BARBER COMMISSION UNIT
@@ -595,16 +620,13 @@ function applyRemoteSnapshot(remote: Partial<StoreData>) {
 
     // Write to Supabase in background
     if (isSupabaseConfigured && supabase) {
-      const db = supabase;
-      db.from('sales').insert(mapSaleToDb(newSale)).then((res: any) => {
-        if (res && res.error) console.error('Error persisting sale to Supabase', res.error);
-      });
-      if (newLogs.length > 0) {
-        db.from('inventory_logs').insert(newLogs.map(mapInventoryLogToDb)).then();
-      }
-      updatedProducts.forEach((p) => {
-        db.from('products').upsert(mapProductToDb(p)).then();
-      });
+      void syncRemoteMutation([
+        () => supabase.from('sales').insert(mapSaleToDb(newSale)),
+        ...(newLogs.length > 0
+          ? [() => supabase.from('inventory_logs').insert(newLogs.map(mapInventoryLogToDb))]
+          : []),
+        ...updatedProducts.map((p) => () => supabase.from('products').upsert(mapProductToDb(p))),
+      ]).catch((error) => console.error('Error guardando venta:', error));
     }
 
     clearCart();
@@ -641,10 +663,10 @@ function applyRemoteSnapshot(remote: Partial<StoreData>) {
     }
 
     if (isSupabaseConfigured && supabase) {
-      supabase.from('products').insert(mapProductToDb(newProd)).then();
-      if (logToSave) {
-        supabase.from('inventory_logs').insert(mapInventoryLogToDb(logToSave)).then();
-      }
+      void syncRemoteMutation([
+        () => supabase.from('products').insert(mapProductToDb(newProd)),
+        ...(logToSave ? [() => supabase.from('inventory_logs').insert(mapInventoryLogToDb(logToSave!))] : []),
+      ]).catch((error) => console.error('Error guardando producto:', error));
     }
   };
 
@@ -654,7 +676,9 @@ function applyRemoteSnapshot(remote: Partial<StoreData>) {
     persist({ products: list });
 
     if (isSupabaseConfigured && supabase) {
-      supabase.from('products').upsert(mapProductToDb(updated)).then();
+      void syncRemoteMutation([
+        () => supabase.from('products').upsert(mapProductToDb(updated)),
+      ]).catch((error) => console.error('Error actualizando producto:', error));
     }
   };
 
@@ -693,8 +717,10 @@ function applyRemoteSnapshot(remote: Partial<StoreData>) {
 
     if (isSupabaseConfigured && supabase) {
       const p = list.find((item) => item.id === productId);
-      if (p) supabase.from('products').upsert(mapProductToDb(p)).then();
-      if (logToSave) supabase.from('inventory_logs').insert(mapInventoryLogToDb(logToSave)).then();
+      void syncRemoteMutation([
+        ...(p ? [() => supabase.from('products').upsert(mapProductToDb(p))] : []),
+        ...(logToSave ? [() => supabase.from('inventory_logs').insert(mapInventoryLogToDb(logToSave!))] : []),
+      ]).catch((error) => console.error('Error ajustando inventario:', error));
     }
   };
 
@@ -704,7 +730,9 @@ function applyRemoteSnapshot(remote: Partial<StoreData>) {
     persist({ products: list });
 
     if (isSupabaseConfigured && supabase) {
-      supabase.from('products').delete().eq('id', id).then();
+      void syncRemoteMutation([
+        () => supabase.from('products').delete().eq('id', id),
+      ]).catch((error) => console.error('Error eliminando producto:', error));
     }
   };
 
@@ -716,7 +744,9 @@ function applyRemoteSnapshot(remote: Partial<StoreData>) {
     persist({ services: updated });
 
     if (isSupabaseConfigured && supabase) {
-      supabase.from('services').insert(mapServiceToDb(newServ)).then();
+      void syncRemoteMutation([
+        () => supabase.from('services').insert(mapServiceToDb(newServ)),
+      ]).catch((error) => console.error('Error guardando servicio:', error));
     }
   };
 
@@ -726,7 +756,9 @@ function applyRemoteSnapshot(remote: Partial<StoreData>) {
     persist({ services: list });
 
     if (isSupabaseConfigured && supabase) {
-      supabase.from('services').upsert(mapServiceToDb(updated)).then();
+      void syncRemoteMutation([
+        () => supabase.from('services').upsert(mapServiceToDb(updated)),
+      ]).catch((error) => console.error('Error actualizando servicio:', error));
     }
   };
 
@@ -736,7 +768,9 @@ function applyRemoteSnapshot(remote: Partial<StoreData>) {
     persist({ services: list });
 
     if (isSupabaseConfigured && supabase) {
-      supabase.from('services').delete().eq('id', id).then();
+      void syncRemoteMutation([
+        () => supabase.from('services').delete().eq('id', id),
+      ]).catch((error) => console.error('Error eliminando servicio:', error));
     }
   };
 
@@ -748,7 +782,9 @@ function applyRemoteSnapshot(remote: Partial<StoreData>) {
     persist({ barbers: updated });
 
     if (isSupabaseConfigured && supabase) {
-      supabase.from('barbers').insert(mapBarberToDb(newBarber)).then();
+      void syncRemoteMutation([
+        () => supabase.from('barbers').insert(mapBarberToDb(newBarber)),
+      ]).catch((error) => console.error('Error guardando barbero:', error));
     }
   };
 
@@ -758,7 +794,9 @@ function applyRemoteSnapshot(remote: Partial<StoreData>) {
     persist({ barbers: list });
 
     if (isSupabaseConfigured && supabase) {
-      supabase.from('barbers').upsert(mapBarberToDb(updated)).then();
+      void syncRemoteMutation([
+        () => supabase.from('barbers').upsert(mapBarberToDb(updated)),
+      ]).catch((error) => console.error('Error actualizando barbero:', error));
     }
   };
 
@@ -771,7 +809,9 @@ function applyRemoteSnapshot(remote: Partial<StoreData>) {
     persist({ barbers: list });
 
     if (isSupabaseConfigured && supabase) {
-      supabase.from('barbers').delete().eq('id', id).then();
+      void syncRemoteMutation([
+        () => supabase.from('barbers').delete().eq('id', id),
+      ]).catch((error) => console.error('Error eliminando barbero:', error));
     }
   };
 
@@ -787,7 +827,9 @@ function applyRemoteSnapshot(remote: Partial<StoreData>) {
     persist({ appointments: updated });
 
     if (isSupabaseConfigured && supabase) {
-      supabase.from('appointments').insert(mapAppointmentToDb(newApt)).then();
+      void syncRemoteMutation([
+        () => supabase.from('appointments').insert(mapAppointmentToDb(newApt)),
+      ]).catch((error) => console.error('Error guardando cita:', error));
     }
   };
 
@@ -797,7 +839,9 @@ function applyRemoteSnapshot(remote: Partial<StoreData>) {
     persist({ appointments: list });
 
     if (isSupabaseConfigured && supabase) {
-      supabase.from('appointments').upsert(mapAppointmentToDb(updated)).then();
+      void syncRemoteMutation([
+        () => supabase.from('appointments').upsert(mapAppointmentToDb(updated)),
+      ]).catch((error) => console.error('Error actualizando cita:', error));
     }
   };
 
@@ -807,7 +851,9 @@ function applyRemoteSnapshot(remote: Partial<StoreData>) {
     persist({ appointments: list });
 
     if (isSupabaseConfigured && supabase) {
-      supabase.from('appointments').delete().eq('id', id).then();
+      void syncRemoteMutation([
+        () => supabase.from('appointments').delete().eq('id', id),
+      ]).catch((error) => console.error('Error eliminando cita:', error));
     }
   };
 
@@ -845,7 +891,9 @@ function applyRemoteSnapshot(remote: Partial<StoreData>) {
     persist({ ticketConfig: config });
 
     if (isSupabaseConfigured && supabase) {
-      supabase.from('ticket_config').upsert(mapTicketConfigToDb(config)).then();
+      void syncRemoteMutation([
+        () => supabase.from('ticket_config').upsert(mapTicketConfigToDb(config)),
+      ]).catch((error) => console.error('Error guardando configuración:', error));
     }
   };
 
@@ -900,4 +948,20 @@ function applyRemoteSnapshot(remote: Partial<StoreData>) {
     updateTicketConfig,
     fetchFromSupabase,
   };
+}
+
+type BarberStore = ReturnType<typeof useBarberStoreState>;
+const BarberStoreContext = createContext<BarberStore | null>(null);
+
+export function BarberStoreProvider({ children }: { children: React.ReactNode }) {
+  const store = useBarberStoreState();
+  return createElement(BarberStoreContext.Provider, { value: store }, children);
+}
+
+export function useBarberStore(): BarberStore {
+  const store = useContext(BarberStoreContext);
+  if (!store) {
+    throw new Error('useBarberStore must be used inside BarberStoreProvider');
+  }
+  return store;
 }

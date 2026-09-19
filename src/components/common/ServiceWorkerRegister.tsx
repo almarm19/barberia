@@ -18,6 +18,9 @@ export function ServiceWorkerRegister() {
       .then((reg) => {
         console.log('Service Worker de Barbas Cuts registrado con éxito:', reg.scope);
         reg.update();
+        if (navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_OLD_CACHES' });
+        }
       })
       .catch((err) => {
         console.error('Error registrando Service Worker:', err);

@@ -355,17 +355,29 @@ function AdminPasswordSection() {
   const { adminPassword, setAdminPassword } = useBarberStore();
   const [currentInputPass, setCurrentInputPass] = useState(adminPassword);
   const [passSaved, setPassSaved] = useState(false);
+  const [passSaving, setPassSaving] = useState(false);
+  const [passError, setPassError] = useState('');
 
   React.useEffect(() => {
     setCurrentInputPass(adminPassword);
   }, [adminPassword]);
 
-  const handleSavePassword = (e: React.FormEvent) => {
+  const handleSavePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentInputPass.trim()) return;
-    setAdminPassword(currentInputPass.trim());
-    setPassSaved(true);
-    setTimeout(() => setPassSaved(false), 3000);
+    setPassSaving(true);
+    setPassSaved(false);
+    setPassError('');
+    try {
+      await setAdminPassword(currentInputPass.trim());
+      setPassSaved(true);
+      setTimeout(() => setPassSaved(false), 3000);
+    } catch (error) {
+      console.error('Error guardando contraseña:', error);
+      setPassError('No se pudo guardar en la nube. Verifica la configuración de Supabase.');
+    } finally {
+      setPassSaving(false);
+    }
   };
 
   return (
@@ -403,10 +415,11 @@ function AdminPasswordSection() {
 
         <button
           type="submit"
+          disabled={passSaving}
           className="px-5 py-3 bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold rounded-xl text-xs shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center gap-2 shrink-0"
         >
           <Save className="w-4 h-4" />
-          Actualizar Clave
+          {passSaving ? 'Guardando...' : 'Actualizar Clave'}
         </button>
       </form>
 
@@ -415,6 +428,7 @@ function AdminPasswordSection() {
           <CheckCircle2 className="w-4 h-4" /> ¡Contraseña de administrador actualizada con éxito!
         </p>
       )}
+      {passError && <p className="text-xs font-bold text-red-400">{passError}</p>}
     </div>
   );
 }

@@ -77,7 +77,17 @@ export function CatalogView() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImageUrl(reader.result as string);
+        const source = new Image();
+        source.onload = () => {
+          const maxSide = 900;
+          const scale = Math.min(1, maxSide / Math.max(source.width, source.height));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(source.width * scale));
+          canvas.height = Math.max(1, Math.round(source.height * scale));
+          canvas.getContext('2d')?.drawImage(source, 0, 0, canvas.width, canvas.height);
+          setImageUrl(canvas.toDataURL('image/jpeg', 0.78));
+        };
+        source.src = reader.result as string;
       };
       reader.readAsDataURL(file);
     }

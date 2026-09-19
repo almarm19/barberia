@@ -1,4 +1,4 @@
-const CACHE_NAME = 'barbas-cuts-pos-v3';
+const CACHE_NAME = 'barbas-cuts-pos-v4';
 const ASSETS_TO_CACHE = [
   '/manifest.json',
   '/images/logo_barbas_cuts.svg',
@@ -37,6 +37,12 @@ self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
 
+  // Never serve application bundles or API responses from an old cache.
+  if (request.url.includes('/_next/') || request.url.includes('/api/')) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request).catch(() => caches.match('/'))
@@ -66,4 +72,16 @@ self.addEventListener('fetch', (event) => {
         .catch(() => caches.match('/'));
     })
   );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'CLEAR_OLD_CACHES') {
+    event.waitUntil(
+      caches.keys().then((cacheNames) => Promise.all(
+        cacheNames
+          .filter((cache) => cache !== CACHE_NAME)
+          .map((cache) => caches.delete(cache))
+      ))
+    );
+  }
 });
